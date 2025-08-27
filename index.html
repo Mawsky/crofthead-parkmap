@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Crofthead Map Demo (auto-size)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { height:100%; margin:0; background:#eef4ea; }
+    #wrap { width:100%; max-width:1920px; margin:0 auto; }
+    #panel { font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding:8px 12px; }
+    #map { width:100%; height:auto; display:block; background:#dfead6; }
+    .pitch { opacity:0.95; }
+    .pitch:hover { opacity:1; outline:2px solid #222; cursor:pointer; }
+    .tip { position:fixed; pointer-events:none; background:#111; color:#fff; padding:6px 8px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .12s; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="panel">Crofthead interactive demo. Hover a block.</div>
+    <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div id="tip" class="tip"></div>
+
+  <script>
+  async function boot() {
+    const data = await fetch('crofthead_map.json').then(r => r.json());
+    const svg = document.getElementById('map');
+
+    // Get slide size from JSON (points from PowerPoint export)
+    const W = Math.round(data.slide.width_pt);
+    const H = Math.round(data.slide.height_pt);
+
+    // Apply viewBox from JSON so everything scales together
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    // Try to add background; if missing, just use a soft green
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','image');
+    bg.setAttributeNS('http://www.w3.org/1999/xlink','href','parkmap_background.png');
+    bg.setAttribute('x','0'); bg.setAttribute('y','0');
+    bg.setAttribute('width', W); bg.setAttribute('height', H);
+    bg.addEventListener('error', () => { svg.style.background = '#cfe5b7'; }, { once:true });
+    svg.appendChild(bg);
+
+    // Draw shapes
+    data.shapes.sort((a,b)=> (a.z||0)-(b.z||0));
+    for (const s of data.shapes) {
+      if (s.type === 'Line') continue; // skip road strokes exported as lines, for now
+      const x = s.x_pct * W, y = s.y_pct * H, w = s.w_pct * W, h = s.h_pct * H;
+      const el = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      el.setAttribute('x', x); el.setAttribute('y', y);
+      el.setAttribute('width', w); el.setAttribute('height', h);
+      if (s.rotation_deg) {
+        const cx = x + w/2, cy = y + h/2;
+        el.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
+      }
+      el.setAttribute('fill', s.fill || '#b3b3b3');
+      el.setAttribute('stroke', s.stroke || '#4a4a4a');
+      el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
+      el.setAttribute('class','pitch');
+      el.dataset.id = s.id;
+      el.dataset.name = s.name;
+      svg.appendChild(el);
+    }
+
+    // Simple tooltip
+    const tip = document.getElementById('tip');
+    svg.addEventListener('mousemove', ev => {
+      const t = ev.target;
+      if (t.classList.contains('pitch')) {
+        tip.textContent = (t.dataset.name || 'Pitch') + ' (id ' + t.dataset.id + ')';
+        tip.style.opacity = 0.95;
+        tip.style.left = (ev.clientX + 12) + 'px';
+        tip.style.top = (ev.clientY + 12) + 'px';
+      } else {
+        tip.style.opacity = 0;
+      }
+    });
+  }
+  boot();
+  </script>
+</body>
+</html>
