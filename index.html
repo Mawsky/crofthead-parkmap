@@ -196,12 +196,18 @@
 
         ticket.innerHTML = `
           <h4>${title}</h4>
-          <div class="meta">${(t.unit_type||'').toUpperCase()} • ${(t.ownership||'').replace('_',' ') || '—'}</div>
+          <div class="meta">Type/Ownership: ${(t.unit_type||'—').toString().toUpperCase()} • ${(t.ownership||'—').replace('_',' ')}</div>
           <div class="meta">Status: ${t.status || '—'}</div>
-          ${(t.check_in||t.check_out) ? `<div class="meta">Stay: ${t.check_in || '—'} → ${t.check_out || '—'}</div>` : ''}
-          ${t.issue_summary ? `<div class="meta">Issue: ${t.issue_summary}</div>` : ''}
-          ${t.notes ? `<div class="meta" style="margin-top:6px;color:#666;">${t.notes}</div>` : ''}
+          <div class="meta">Cleaning: ${t.clean_status || '—'}${t.last_cleaned ? ` (last: ${t.last_cleaned})` : ''}</div>
+          ${(t.check_in||t.check_out) ? `<div class="meta">Booking: ${t.check_in || '—'} → ${t.check_out || '—'}</div>` : `<div class="meta">Booking: —</div>`}
+          <div class="meta">Fees: ${t.site_fee_status || '—'}${t.for_sale_price ? ` • For sale £${t.for_sale_price}` : ''}</div>
+          ${(t.gas_cp12_expiry||t.elec_safety_check_date||t.smoke_co_check_date) ? `
+            <div class="meta">Compliance: ${t.gas_cp12_expiry?`Gas CP12 ${t.gas_cp12_expiry}`:''}${t.elec_safety_check_date?`${t.gas_cp12_expiry?' • ':''}Elec ${t.elec_safety_check_date}`:''}${t.smoke_co_check_date?`${(t.gas_cp12_expiry||t.elec_safety_check_date)?' • ':''}Alarms ${t.smoke_co_check_date}`:''}</div>
+          ` : `<div class="meta">Compliance: —</div>`}
+          ${t.issue_summary ? `<div class="meta">Maintenance: ${t.maint_status || 'issue'} • ${t.issue_summary}</div>` : `<div class="meta">Maintenance: ${t.maint_status || '—'}</div>`}
+          ${t.amenities_listed ? `<div class="meta">Amenities: ${t.amenities_listed}</div>` : ''}
           ${badges.length ? `<div class="badges">${badges.map(b=>`<span class=\"badge\">${b}</span>`).join('')}</div>` : ''}
+          ${t.notes ? `<div class="meta" style="margin-top:6px;color:#666;">${t.notes}</div>` : ''}
         `;
         ticket.classList.remove('hidden');
         const pad = 12, w = 320, h = 180;
