@@ -98,13 +98,17 @@
     const OWN_BORDER = { owner:'#4C8BF5', park_let:'#7B61FF', park_owned:'#3A9B7A' };
     const STAT_FILL = {
       vacant:'#DDF5E4', booked:'#FFE2B5', occupied:'#FFF59E',
-      turnaround:'#FFE0E0', out_of_service:'#FAD7DD', for_sale:'#E0ECFF'
+      turnaround:'#FFE0E0', out_of_service:'#FAD7DD', for_sale:'#E0ECFF',
+      empty_plot:'#FFFFFF'
     };
 
     function colourFor(t){
+      const status = (t?.status || '').toLowerCase();
+      if (status === 'empty_plot') {
+        return { stroke: '#999999', fill: '#FFFFFF', extra: '' };
+      }
       const own = (t?.ownership || '').toLowerCase();
       const stroke = OWN_BORDER[own] || '#4a4a4a';
-      const status = (t?.status || '').toLowerCase();
       let fill = STAT_FILL[status] || '#b3b3b3';
       const extra = status==='out_of_service' ? 'hatch' : '';
       return {stroke, fill, extra};
