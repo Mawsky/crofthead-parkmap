@@ -103,10 +103,16 @@
     };
 
     function colourFor(t){
-      const status = (t?.status || '').toLowerCase();
-      if (status === 'empty_plot') {
+      // Normalise status to be forgiving: spaces/dashes -> underscore
+      const raw = (t?.status ?? '').toString().trim().toLowerCase();
+      const status = raw.replace(/[\s-]+/g,'_');
+
+      // Treat common aliases as empty plots
+      const isEmpty = status === 'empty_plot' || status === 'empty' || status === 'empty_pitch' || status === 'plot_only' || status === 'vacant_plot';
+      if (isEmpty) {
         return { stroke: '#999999', fill: '#FFFFFF', extra: '' };
       }
+
       const own = (t?.ownership || '').toLowerCase();
       const stroke = OWN_BORDER[own] || '#4a4a4a';
       let fill = STAT_FILL[status] || '#b3b3b3';
