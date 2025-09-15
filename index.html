@@ -38,6 +38,8 @@
       z-index: 10;
     }
     #toolbar { display:flex; gap:8px; align-items:center; padding:8px 12px; flex-wrap:wrap; }
+    #toolbar { background:#fff; border-bottom:1px solid #e6e6e6; }
+    #brandLogo { height:28px; vertical-align:middle; margin-right:8px; }
     select, button { padding:6px 8px; font:inherit; }
     .ticket {
       position: fixed; z-index: 20; max-width: 320px;
@@ -55,7 +57,10 @@
 <body>
   <div id="wrap">
     <div id="toolbar">
-      <div><strong>Crofthead interactive demo</strong></div>
+      <div>
+        <img id="brandLogo" src="Crofthead_Harrison_Logo.jpeg" alt="Crofthead logo" />
+        <strong>Crofthead interactive demo</strong>
+      </div>
       <label>Zone:
         <select id="fZone"><option value="*">All</option></select>
       </label>
@@ -96,6 +101,8 @@
       return { rows, byId, cols };
     }
 
+    const norm = s => (s ?? '').toString().trim().toLowerCase().replace(/[\s-]+/g,'_');
+
     const OWN_BORDER = { owner:'#4C8BF5', park_let:'#7B61FF', park_owned:'#3A9B7A' };
     const STAT_FILL = {
       vacant:'#DDF5E4', booked:'#FFE2B5', occupied:'#FFF59E',
@@ -114,7 +121,7 @@
         return { stroke: '#999999', fill: '#FFFFFF', extra: '' };
       }
 
-      const own = (t?.ownership || '').toLowerCase();
+      const own = norm(t?.ownership);
       const stroke = OWN_BORDER[own] || '#4a4a4a';
       let fill = STAT_FILL[status] || '#b3b3b3';
       const extra = status==='out_of_service' ? 'hatch' : '';
@@ -164,7 +171,7 @@
       const allZones = sheet.rows.map(r => (r.zone || '').trim());
       const hasEmptyZones = allZones.some(z => z === '');
       const zones = Array.from(new Set(allZones.filter(Boolean))).sort();
-      zones.forEach(z => { const opt=document.createElement('option'); opt.value=z.toLowerCase(); opt.textContent=z; fZone.appendChild(opt); });
+      zones.forEach(z => { const opt=document.createElement('option'); opt.value=norm(z); opt.textContent=z; fZone.appendChild(opt); });
       if (hasEmptyZones) {
         const optNone = document.createElement('option');
         optNone.value='__none__'; optNone.textContent='(Unassigned)';
@@ -192,8 +199,8 @@
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
-        el.dataset.zone = ((t?.zone||'').trim().toLowerCase());
-        el.dataset.ownership = (t?.ownership||'').toLowerCase();
+        el.dataset.zone = norm(t?.zone);
+        el.dataset.ownership = norm(t?.ownership);
         nodes.push(el);
         svg.appendChild(el);
       }
