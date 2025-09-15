@@ -69,6 +69,7 @@
       </label>
       <button id="showCleaning">Cleaning due</button>
       <button id="showMaint">Maintenance</button>
+      <button id="showEmpty">Empty plots</button>
       <button id="clearFilters">Clear</button>
     </div>
     <div id="frame">
@@ -160,8 +161,15 @@
 
       // Populate zone filter options
       const fZone = document.getElementById('fZone');
-      const zones = Array.from(new Set(sheet.rows.map(r => r.zone || '').filter(Boolean))).sort();
-      zones.forEach(z => { const opt=document.createElement('option'); opt.value=z; opt.textContent=z; fZone.appendChild(opt); });
+      const allZones = sheet.rows.map(r => (r.zone || '').trim());
+      const hasEmptyZones = allZones.some(z => z === '');
+      const zones = Array.from(new Set(allZones.filter(Boolean))).sort();
+      zones.forEach(z => { const opt=document.createElement('option'); opt.value=z.toLowerCase(); opt.textContent=z; fZone.appendChild(opt); });
+      if (hasEmptyZones) {
+        const optNone = document.createElement('option');
+        optNone.value='__none__'; optNone.textContent='(Unassigned)';
+        fZone.appendChild(optNone);
+      }
 
       // 3) Draw shapes joined with ticket data
       const NS = 'http://www.w3.org/2000/svg';
@@ -184,7 +192,7 @@
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
-        el.dataset.zone = (t?.zone||'').toLowerCase();
+        el.dataset.zone = ((t?.zone||'').trim().toLowerCase());
         el.dataset.ownership = (t?.ownership||'').toLowerCase();
         nodes.push(el);
         svg.appendChild(el);
@@ -245,7 +253,7 @@
         const z = document.getElementById('fZone').value.toLowerCase();
         const o = document.getElementById('fOwner').value.toLowerCase();
         nodes.forEach(n => {
-          const okZ = (z==='*' || n.dataset.zone===z);
+          const okZ = (z==='*' || (z==='__none__' ? (n.dataset.zone==='') : (n.dataset.zone===z)));
           const okO = (o==='*' || n.dataset.ownership===o);
           n.style.display = (okZ && okO) ? '' : 'none';
         });
@@ -263,6 +271,15 @@
         nodes.forEach(n => {
           const t = sheet.byId[n.dataset.id];
           n.style.display = (t && (t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) ? '' : 'none';
+        });
+      };
+      document.getElementById('showEmpty').onclick = () => {
+        nodes.forEach(n => {
+          const t = sheet.byId[n.dataset.id];
+          const raw = (t?.status ?? '').toString().trim().toLowerCase();
+          const status = raw.replace(/[\s-]+/g,'_');
+          const isEmpty = ['empty_plot','empty','empty_pitch','plot_only','vacant_plot'].includes(status);
+          n.style.display = isEmpty ? '' : 'none';
         });
       };
       document.getElementById('clearFilters').onclick = () => {
