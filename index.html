@@ -37,11 +37,40 @@
       font-size: 12px; opacity: 0; transition: opacity .12s;
       z-index: 10;
     }
+    #toolbar { display:flex; gap:8px; align-items:center; padding:8px 12px; flex-wrap:wrap; }
+    select, button { padding:6px 8px; font:inherit; }
+    .ticket {
+      position: fixed; z-index: 20; max-width: 320px;
+      background:#fff; border:1px solid #ddd; border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.15); padding:10px 12px; font-size:13px;
+    }
+    .ticket h4 { margin:0 0 6px 0; font-size:14px; }
+    .ticket .meta { color:#444; margin:4px 0; }
+    .badges { display:flex; gap:6px; margin-top:6px; }
+    .badge { background:#eee; border-radius:8px; padding:2px 6px; font-size:12px; }
+    .hatch { fill:url(#diagonalHatch); }
+    .hidden { display:none; }
   </style>
 </head>
 <body>
   <div id="wrap">
-    <div id="panel">Crofthead interactive demo. Hover a block.</div>
+    <div id="toolbar">
+      <div><strong>Crofthead interactive demo</strong></div>
+      <label>Zone:
+        <select id="fZone"><option value="*">All</option></select>
+      </label>
+      <label>Ownership:
+        <select id="fOwner">
+          <option value="*">All</option>
+          <option value="owner">Owner</option>
+          <option value="park_let">Park-let</option>
+          <option value="park_owned">Park-owned</option>
+        </select>
+      </label>
+      <button id="showCleaning">Cleaning due</button>
+      <button id="showMaint">Maintenance</button>
+      <button id="clearFilters">Clear</button>
+    </div>
     <div id="frame">
       <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
@@ -49,33 +78,87 @@
   <div id="tip" class="tip"></div>
 
   <script>
+    // PASTE your Google Sheets *published CSV* URL below (File -> Share -> Publish to web -> CSV)
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTglxnUZq_o3OR9W7rmnuEOHLnGTFcXMqiGcCcysJe8HxeZOuhEhHsvJBLUyqitHd9ookW9LG7tBp4S/pub?output=csv';
+
+    async function loadCSV(url) {
+      const txt = await fetch(url, {cache:'no-store'}).then(r => r.text());
+      const lines = txt.trim().split(/\r?\n/);
+      const cols = lines.shift().split(',');
+      const parse = line => {
+        const vals = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s => s.replace(/^"|"$/g,''));
+        const obj = {}; cols.forEach((c,i)=> obj[c]=vals[i] ?? '');
+        return obj;
+      };
+      const rows = lines.map(parse);
+      const byId = Object.fromEntries(rows.map(r => [r.id, r]));
+      return { rows, byId, cols };
+    }
+
+    const OWN_BORDER = { owner:'#4C8BF5', park_let:'#7B61FF', park_owned:'#3A9B7A' };
+    const STAT_FILL = {
+      vacant:'#DDF5E4', booked:'#FFE2B5', occupied:'#FFF59E',
+      turnaround:'#FFE0E0', out_of_service:'#FAD7DD', for_sale:'#E0ECFF'
+    };
+
+    function colourFor(t){
+      const own = (t?.ownership || '').toLowerCase();
+      const stroke = OWN_BORDER[own] || '#4a4a4a';
+      const status = (t?.status || '').toLowerCase();
+      let fill = STAT_FILL[status] || '#b3b3b3';
+      const extra = status==='out_of_service' ? 'hatch' : '';
+      return {stroke, fill, extra};
+    }
+    function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
+  </script>
+
+  <script>
     async function boot() {
-      // Load geometry
+      // 1) Load geometry
       const data = await fetch('crofthead_map.json').then(r => r.json());
       const W = Math.round(data.slide.width_pt);
       const H = Math.round(data.slide.height_pt);
 
       const svg = document.getElementById('map');
       const frame = document.getElementById('frame');
-      const tip = document.getElementById('tip');
-
-      // Lock the visual to the slide's aspect ratio (prevents cropping on odd screens)
       frame.style.aspectRatio = `${W} / ${H}`;
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-      // Background image (optional). If not present, we keep the soft green.
+      // Background image (optional)
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
       bg.setAttribute('href', 'parkmap_background.png');
       bg.setAttribute('x', '0'); bg.setAttribute('y', '0');
       bg.setAttribute('width', W); bg.setAttribute('height', H);
-      bg.addEventListener('error', () => { /* no-op; frame already has a background */ }, { once:true });
       svg.appendChild(bg);
 
-      // Draw shapes
+      // Hatch pattern for out_of_service fill
+      const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const pattern = document.createElementNS('http://www.w3.org/2000/svg','pattern');
+      pattern.setAttribute('id','diagonalHatch');
+      pattern.setAttribute('patternUnits','userSpaceOnUse');
+      pattern.setAttribute('width','6');
+      pattern.setAttribute('height','6');
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d','M0,6 l6,-6 M-1,1 l2,-2 M5,7 l2,-2');
+      path.setAttribute('stroke','#b66');
+      path.setAttribute('stroke-width','1');
+      pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
+
+      // 2) Load ticket data from Google Sheets (published CSV)
+      let sheet = {rows:[], byId:{}};
+      try { sheet = await loadCSV(SHEET_CSV_URL); } catch(e) { console.warn('Sheet load failed', e); }
+
+      // Populate zone filter options
+      const fZone = document.getElementById('fZone');
+      const zones = Array.from(new Set(sheet.rows.map(r => r.zone || '').filter(Boolean))).sort();
+      zones.forEach(z => { const opt=document.createElement('option'); opt.value=z; opt.textContent=z; fZone.appendChild(opt); });
+
+      // 3) Draw shapes joined with ticket data
       const NS = 'http://www.w3.org/2000/svg';
+      const nodes = [];
       data.shapes.sort((a,b)=> (a.z||0) - (b.z||0));
       for (const s of data.shapes) {
-        if (s.type === 'Line') continue; // skip exported line artefacts
+        if (s.type === 'Line') continue;
         const x = s.x_pct * W, y = s.y_pct * H, w = s.w_pct * W, h = s.h_pct * H;
         const el = document.createElementNS(NS, 'rect');
         el.setAttribute('x', x); el.setAttribute('y', y);
@@ -84,28 +167,95 @@
           const cx = x + w/2, cy = y + h/2;
           el.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
         }
-        el.setAttribute('fill', s.fill || '#b3b3b3');
-        el.setAttribute('stroke', s.stroke || getComputedStyle(document.documentElement).getPropertyValue('--stroke').trim());
+        const t = sheet.byId[s.id];
+        const {stroke, fill, extra} = colourFor(t);
+        el.setAttribute('fill', fill);
+        el.setAttribute('stroke', stroke);
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
-        el.setAttribute('class', 'pitch');
-        // Useful data attributes for tooltips/clicks
+        el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
-        el.dataset.name = s.name || '';
+        el.dataset.zone = (t?.zone||'').toLowerCase();
+        el.dataset.ownership = (t?.ownership||'').toLowerCase();
+        nodes.push(el);
         svg.appendChild(el);
       }
 
-      // Tooltip behaviour
+      // 4) Ticket panel on hover/click
+      const ticket = document.createElement('div');
+      ticket.className = 'ticket hidden';
+      document.body.appendChild(ticket);
+
+      function showTicket(ev, id) {
+        const t = sheet.byId[id] || {};
+        const title = (t.pitch_no || id) + (t.zone ? ` — ${t.zone}` : '');
+        const badges = [];
+        if ((t.hot_tub||'').toLowerCase()==='yes') badges.push('♨︎ Hot tub');
+        if ((t.clean_status||'').toLowerCase()==='due') badges.push('🧹 Cleaning');
+        if ((t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) badges.push('🔧 Maintenance');
+        if ((t.site_fee_status||'').toLowerCase()==='overdue') badges.push('£ Fees');
+
+        ticket.innerHTML = `
+          <h4>${title}</h4>
+          <div class="meta">${(t.unit_type||'').toUpperCase()} • ${(t.ownership||'').replace('_',' ') || '—'}</div>
+          <div class="meta">Status: ${t.status || '—'}</div>
+          ${(t.check_in||t.check_out) ? `<div class="meta">Stay: ${t.check_in || '—'} → ${t.check_out || '—'}</div>` : ''}
+          ${t.issue_summary ? `<div class="meta">Issue: ${t.issue_summary}</div>` : ''}
+          ${t.notes ? `<div class="meta" style="margin-top:6px;color:#666;">${t.notes}</div>` : ''}
+          ${badges.length ? `<div class="badges">${badges.map(b=>`<span class=\"badge\">${b}</span>`).join('')}</div>` : ''}
+        `;
+        ticket.classList.remove('hidden');
+        const pad = 12, w = 320, h = 180;
+        const x = clamp(ev.clientX + 14, 8, window.innerWidth - w - pad);
+        const y = clamp(ev.clientY + 14, 8, window.innerHeight - h - pad);
+        ticket.style.left = x + 'px';
+        ticket.style.top  = y + 'px';
+      }
+      function hideTicket(){ ticket.classList.add('hidden'); }
+
       svg.addEventListener('mousemove', ev => {
         const t = ev.target;
-        if (t.classList && t.classList.contains('pitch')) {
-          tip.textContent = (t.dataset.name || 'Pitch') + (t.dataset.id ? ` (id ${t.dataset.id})` : '');
-          tip.style.opacity = 0.95;
-          tip.style.left = (ev.clientX + 12) + 'px';
-          tip.style.top  = (ev.clientY + 12) + 'px';
-        } else {
-          tip.style.opacity = 0;
-        }
+        if (t.classList && t.classList.contains('pitch')) showTicket(ev, t.dataset.id); else hideTicket();
       });
+      svg.addEventListener('mouseleave', hideTicket);
+      svg.addEventListener('click', ev => {
+        if (ev.target.classList.contains('pitch')) showTicket(ev, ev.target.dataset.id);
+      });
+      document.addEventListener('click', ev => {
+        if (!ev.target.closest('.ticket') && !ev.target.closest('#map')) hideTicket();
+      });
+
+      // 5) Filters
+      function applyFilters() {
+        const z = document.getElementById('fZone').value.toLowerCase();
+        const o = document.getElementById('fOwner').value.toLowerCase();
+        nodes.forEach(n => {
+          const okZ = (z==='*' || n.dataset.zone===z);
+          const okO = (o==='*' || n.dataset.ownership===o);
+          n.style.display = (okZ && okO) ? '' : 'none';
+        });
+      }
+      document.getElementById('fZone').onchange = applyFilters;
+      document.getElementById('fOwner').onchange = applyFilters;
+
+      document.getElementById('showCleaning').onclick = () => {
+        nodes.forEach(n => {
+          const t = sheet.byId[n.dataset.id];
+          n.style.display = (t && (t.clean_status||'').toLowerCase()==='due') ? '' : 'none';
+        });
+      };
+      document.getElementById('showMaint').onclick = () => {
+        nodes.forEach(n => {
+          const t = sheet.byId[n.dataset.id];
+          n.style.display = (t && (t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) ? '' : 'none';
+        });
+      };
+      document.getElementById('clearFilters').onclick = () => {
+        document.getElementById('fZone').value='*';
+        document.getElementById('fOwner').value='*';
+        applyFilters();
+      };
+
+      applyFilters();
     }
     boot();
   </script>
