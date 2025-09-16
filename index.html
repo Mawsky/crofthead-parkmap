@@ -58,7 +58,7 @@
   <div id="wrap">
     <div id="toolbar">
       <div>
-        <img id="brandLogo" src="Crofthead_Harrison_Logo.jpeg" alt="Crofthead logo" />
+        <img id="brandLogo" src="./Crofthead_Harrison_Logo.jpeg" alt="Crofthead logo" />
         <strong>Crofthead interactive demo</strong>
       </div>
       <label>Zone:
@@ -102,6 +102,10 @@
     }
 
     const norm = s => (s ?? '').toString().trim().toLowerCase().replace(/[\s-]+/g,'_');
+    const getOwnership = t => {
+      const v = norm(t?.ownership);
+      return v || 'owner'; // treat blank as owner for demo
+    };
 
     const OWN_BORDER = { owner:'#4C8BF5', park_let:'#7B61FF', park_owned:'#3A9B7A' };
     const STAT_FILL = {
@@ -121,7 +125,7 @@
         return { stroke: '#999999', fill: '#FFFFFF', extra: '' };
       }
 
-      const own = norm(t?.ownership);
+      const own = getOwnership(t);
       const stroke = OWN_BORDER[own] || '#4a4a4a';
       let fill = STAT_FILL[status] || '#b3b3b3';
       const extra = status==='out_of_service' ? 'hatch' : '';
@@ -200,7 +204,7 @@
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
         el.dataset.zone = norm(t?.zone);
-        el.dataset.ownership = norm(t?.ownership);
+        el.dataset.ownership = getOwnership(t);
         nodes.push(el);
         svg.appendChild(el);
       }
