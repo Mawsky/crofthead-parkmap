@@ -37,9 +37,10 @@
       font-size: 12px; opacity: 0; transition: opacity .12s;
       z-index: 10;
     }
-    #toolbar { display:flex; gap:8px; align-items:center; padding:8px 12px; flex-wrap:wrap; }
-    #toolbar { background:#fff; border-bottom:1px solid #e6e6e6; }
-    #brandLogo { height:28px; vertical-align:middle; margin-right:8px; }
+    #toolbar { display:flex; gap:12px; align-items:center; padding:0 12px; flex-wrap:wrap; background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px; }
+    #brandBlock { display:flex; align-items:center; justify-content:center; height:56px; padding:0 12px; background: currentColor; }
+    #brandLogo { height:36px; width:auto; display:block; }
+    .toolbar-title { margin-left:auto; font-weight:600; }
     select, button { padding:6px 8px; font:inherit; }
     .ticket {
       position: fixed; z-index: 20; max-width: 320px;
@@ -57,9 +58,8 @@
 <body>
   <div id="wrap">
     <div id="toolbar">
-      <div>
+      <div id="brandBlock">
         <img id="brandLogo" src="./Crofthead_Harrison_Logo.jpeg" alt="Crofthead logo" />
-        <strong>Crofthead interactive demo</strong>
       </div>
       <label>Zone:
         <select id="fZone"><option value="*">All</option></select>
@@ -76,6 +76,7 @@
       <button id="showMaint">Maintenance</button>
       <button id="showEmpty">Empty plots</button>
       <button id="clearFilters">Clear</button>
+      <div class="toolbar-title">Interactive demo</div>
     </div>
     <div id="frame">
       <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
