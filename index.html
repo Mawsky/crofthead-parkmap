@@ -54,17 +54,20 @@
     .hatch { fill:url(#diagonalHatch); }
     /* Pitch number labels */
     .numLabel {
-      font-size: 10px;
-      font-weight: 600;
+      font-size: 6px;                   /* smaller (about half the previous size) */
+      font-weight: 500;                 /* slightly lighter to feel narrower */
+      font-stretch: condensed;          /* prefer condensed if available */
+      letter-spacing: 0.1px;            /* tiny tracking so small text stays legible */
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       text-anchor: middle;
       dominant-baseline: central;
-      fill: #111;                /* text colour */
-      stroke: #fff;              /* white halo bubble */
-      stroke-width: 3;           /* thickness of halo */
-      paint-order: stroke fill;  /* draw halo behind fill */
-      pointer-events: none;      /* ignore mouse so hover works on pitches */
+      fill: #444;                       /* fainter text colour */
+      stroke: #fff;                     /* white halo bubble */
+      stroke-width: 2;                  /* thinner halo */
+      paint-order: stroke fill;         /* draw halo behind fill */
+      pointer-events: none;             /* ignore mouse so hover works on pitches */
       user-select: none;
+      opacity: 0.9;                     /* overall fainter appearance */
     }
     .labels-hidden .numLabel { display: none; }
     .hidden { display:none; }
