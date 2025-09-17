@@ -169,7 +169,6 @@
       // Layer for pitch number labels (kept above background, below ticket)
       const labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       labelsLayer.setAttribute('id', 'labelsLayer');
-      svg.appendChild(labelsLayer);
 
       // Background image (optional)
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
@@ -233,7 +232,8 @@
         nodes.push(el);
         svg.appendChild(el);
       }
-
+      // Append labels layer last so it sits above background and pitches
+      svg.appendChild(labelsLayer);
       // Build pitch number labels, centred on each pitch rect
       const labelById = new Map();
       function createOrUpdateLabel(node){
