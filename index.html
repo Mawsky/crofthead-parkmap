@@ -52,6 +52,21 @@
     .badges { display:flex; gap:6px; margin-top:6px; }
     .badge { background:#eee; border-radius:8px; padding:2px 6px; font-size:12px; }
     .hatch { fill:url(#diagonalHatch); }
+    /* Pitch number labels */
+    .numLabel {
+      font-size: 10px;
+      font-weight: 600;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      text-anchor: middle;
+      dominant-baseline: central;
+      fill: #111;                /* text colour */
+      stroke: #fff;              /* white halo bubble */
+      stroke-width: 3;           /* thickness of halo */
+      paint-order: stroke fill;  /* draw halo behind fill */
+      pointer-events: none;      /* ignore mouse so hover works on pitches */
+      user-select: none;
+    }
+    .labels-hidden .numLabel { display: none; }
     .hidden { display:none; }
   </style>
 </head>
@@ -71,6 +86,10 @@
           <option value="park_let">Park-let</option>
           <option value="park_owned">Park-owned</option>
         </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="toggleNums" />
+        Show pitch numbers
       </label>
       <button id="showCleaning">Cleaning due</button>
       <button id="showMaint">Maintenance</button>
@@ -147,6 +166,11 @@
       frame.style.aspectRatio = `${W} / ${H}`;
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
+      // Layer for pitch number labels (kept above background, below ticket)
+      const labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      labelsLayer.setAttribute('id', 'labelsLayer');
+      svg.appendChild(labelsLayer);
+
       // Background image (optional)
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
       bg.setAttribute('href', 'parkmap_background.png');
@@ -210,6 +234,50 @@
         svg.appendChild(el);
       }
 
+      // Build pitch number labels, centred on each pitch rect
+      const labelById = new Map();
+      function createOrUpdateLabel(node){
+        const id = node.dataset.id;
+        // Skip if node not visible (will sync later)
+        const t = sheet.byId[id] || {};
+        const textVal = (t.pitch_no && t.pitch_no.trim()) ? t.pitch_no.trim() : id;
+        // Compute rect centre
+        const x = parseFloat(node.getAttribute('x')) + parseFloat(node.getAttribute('width'))/2;
+        const y = parseFloat(node.getAttribute('y')) + parseFloat(node.getAttribute('height'))/2;
+        let textEl = labelById.get(id);
+        if (!textEl){
+          textEl = document.createElementNS(NS, 'text');
+          textEl.classList.add('numLabel');
+          labelById.set(id, textEl);
+          labelsLayer.appendChild(textEl);
+        }
+        textEl.setAttribute('x', x);
+        textEl.setAttribute('y', y);
+        textEl.textContent = textVal;
+      }
+
+      function rebuildLabels(){
+        nodes.forEach(n => createOrUpdateLabel(n));
+        syncLabelVisibility();
+      }
+
+      function syncLabelVisibility(){
+        const show = document.getElementById('toggleNums').checked;
+        // Toggle all via a class for performance
+        if (show){
+          labelsLayer.classList.remove('labels-hidden');
+        } else {
+          labelsLayer.classList.add('labels-hidden');
+        }
+        // Also mirror per-node display state
+        nodes.forEach(n => {
+          const id = n.dataset.id;
+          const textEl = labelById.get(id);
+          if (!textEl) return;
+          textEl.style.display = (n.style.display === 'none') ? 'none' : '';
+        });
+      }
+
       // 4) Ticket panel on hover/click
       const ticket = document.createElement('div');
       ticket.className = 'ticket hidden';
@@ -268,6 +336,8 @@
           const okZ = (z==='*' || (z==='__none__' ? (n.dataset.zone==='') : (n.dataset.zone===z)));
           const okO = (o==='*' || n.dataset.ownership===o);
           n.style.display = (okZ && okO) ? '' : 'none';
+          const lbl = labelById.get(n.dataset.id);
+          if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
         });
       }
       document.getElementById('fZone').onchange = applyFilters;
@@ -277,12 +347,16 @@
         nodes.forEach(n => {
           const t = sheet.byId[n.dataset.id];
           n.style.display = (t && (t.clean_status||'').toLowerCase()==='due') ? '' : 'none';
+          const lbl = labelById.get(n.dataset.id);
+          if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
         });
       };
       document.getElementById('showMaint').onclick = () => {
         nodes.forEach(n => {
           const t = sheet.byId[n.dataset.id];
           n.style.display = (t && (t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) ? '' : 'none';
+          const lbl = labelById.get(n.dataset.id);
+          if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
         });
       };
       document.getElementById('showEmpty').onclick = () => {
@@ -292,15 +366,23 @@
           const status = raw.replace(/[\s-]+/g,'_');
           const isEmpty = ['empty_plot','empty','empty_pitch','plot_only','vacant_plot'].includes(status);
           n.style.display = isEmpty ? '' : 'none';
+          const lbl = labelById.get(n.dataset.id);
+          if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
         });
       };
       document.getElementById('clearFilters').onclick = () => {
         document.getElementById('fZone').value='*';
         document.getElementById('fOwner').value='*';
         applyFilters();
+        syncLabelVisibility();
       };
 
-      applyFilters();
+      // Pitch number toggle
+      const toggle = document.getElementById('toggleNums');
+      toggle.addEventListener('change', syncLabelVisibility);
+
+      // Build labels once geometry is present
+      rebuildLabels();
     }
     boot();
   </script>
