@@ -287,11 +287,11 @@
 
       function buildSvgLegend(svg, zonesList){
         const NS = 'http://www.w3.org/2000/svg';
-        const pad = 12, boxW = 180, lineH = 14, sw = 14, gap = 8;
+        const pad = 12, boxW = 160, lineH = 12, sw = 12, gap = 6;
         const offsetRight = 72; // ensure we clear the empty-plot area on the right
 
         const bgX = W - boxW - pad - offsetRight;
-        const bgY = pad + 8;
+        const bgY = pad + 24;
 
         const g = document.createElementNS(NS, 'g');
         g.setAttribute('id','mapLegend');
@@ -374,7 +374,7 @@
           const c = document.createElementNS(NS,'circle');
           c.setAttribute('cx', bgX + 20);
           c.setAttribute('cy', y - 3);
-          c.setAttribute('r', 5);
+          c.setAttribute('r', 4);
           c.setAttribute('fill', color);
           c.setAttribute('stroke', '#333');
           c.setAttribute('stroke-width', '0.5');
