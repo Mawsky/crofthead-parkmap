@@ -122,7 +122,7 @@
       <div class="toolbar-title">Interactive demo</div>
     </div>
     <div id="frame">
-      <svg id="map" preserveAspectRatio="xMidYMin slice"></svg>
+      <svg id="map" preserveAspectRatio="xMidYMin meet"></svg>
     </div>
   </div>
   <div id="tip" class="tip"></div>
@@ -209,8 +209,8 @@
         const toolbar = document.getElementById('toolbar');
         const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
         const widthNow = frame.clientWidth || window.innerWidth; // current frame width
-        // The ideal height for the current width, but for cover-fit, use all available
-        const h = available; // cover-fit: exact viewport space under toolbar
+        const ideal = widthNow * (H / W);                        // ideal height for this width
+        const h = Math.min(available, ideal);                    // top-lock without spare space
         frame.style.height = h + 'px';
       }
 
@@ -221,6 +221,13 @@
       // Layer for pitch number labels (kept above background, below ticket)
       const labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       labelsLayer.setAttribute('id', 'labelsLayer');
+
+      // Solid base to avoid any visible gaps from PNG transparency
+      const base = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      base.setAttribute('x','0'); base.setAttribute('y','0');
+      base.setAttribute('width', W); base.setAttribute('height', H);
+      base.setAttribute('fill','#5f7657'); // average grass tone
+      svg.appendChild(base);
 
       // Background image (optional)
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
