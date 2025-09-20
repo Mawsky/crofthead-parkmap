@@ -19,7 +19,7 @@
     #frame {
       width: 100%;
       margin: 0 auto;
-      background: var(--frame-bg);
+      background: transparent;
       position: relative;
       /* aspect-ratio set in JS after reading JSON */
     }
@@ -28,11 +28,11 @@
       height: 100%;
       display: block;
     }
-    .pitch { opacity: 0.95; }
-    /* Subtler default borders and non-scaling stroke for clarity */
-    .pitch { stroke: #808080; stroke-opacity: 0.85; stroke-width:1px; vector-effect: non-scaling-stroke; }
-    .pitch:hover { opacity: 1; stroke: #222; stroke-opacity:1; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); cursor: pointer; }
-    .ownTag { pointer-events: none; }
+    .pitch { opacity: 0.97; }
+    /* Minimal borders + non-scaling stroke */
+    .pitch { stroke: #000; stroke-opacity: 0.28; stroke-width:1px; vector-effect: non-scaling-stroke; }
+    .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
+    .ownTag, .statusDot { pointer-events: none; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -94,13 +94,24 @@
         </select>
       </label>
       <label style="display:flex;align-items:center;gap:6px;">
-        <input type="checkbox" id="toggleBorderMode" />
-        Colour borders
-      </label>
-      <label style="display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="toggleNums" />
         Show pitch numbers
       </label>
+      <label style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="toggleStatus" checked />
+        Show status
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="toggleOwnership" />
+        Show ownership
+      </label>
+      <span id="legend" style="margin-left:auto; font-size:12px; color:#475a66; display:flex; align-items:center; gap:10px;">
+        <span>Legend:</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f2a900;margin-right:4px;"></span>Cleaning</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d64545;margin-right:4px;"></span>Maint</span>
+        <span><span style="display:inline-block;width:12px;height:8px;border:1px solid #999;background:linear-gradient(45deg, rgba(186,102,102,.35) 25%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 50%, rgba(186,102,102,.35) 50%, rgba(186,102,102,.35) 75%, rgba(0,0,0,0) 75%, rgba(0,0,0,0) 100%);background-size:6px 6px;margin-right:4px;display:inline-block;vertical-align:middle"></span>OOS</span>
+        <span id="legendOwn" style="display:none;"><span style="display:inline-block;width:12px;height:8px;border-left:3px solid #4C8BF5;margin-right:4px;"></span>Ownership stripe</span>
+      </span>
       <button id="showCleaning">Cleaning due</button>
       <button id="showMaint">Maintenance</button>
       <button id="showEmpty">Empty plots</button>
@@ -143,21 +154,27 @@
       turnaround:'#FFE0E0', out_of_service:'#FAD7DD', for_sale:'#E0ECFF',
       empty_plot:'#FFFFFF'
     };
+    // Zone tints (very light); fallback generated from zone name if not in map
+    const ZONE_TINT = Object.create(null); // optional explicit map: { carrick_view: 'hsla(210,70%,60%,0.20)', ... }
+    function tintForZone(z){
+      const key = norm(z);
+      if (!key) return 'hsla(0,0%,60%,0.12)';
+      if (ZONE_TINT[key]) return ZONE_TINT[key];
+      // deterministic pastel from string
+      let h = 0; for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
+      h = h % 360; const s = 55, l = 72, a = 0.20;
+      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+    }
+    const STATUS_DOT = { cleaning:'#f2a900', maintenance:'#d64545', fees:'#7b61ff' };
 
     function colourFor(t){
-      // Normalise status to be forgiving: spaces/dashes -> underscore
       const raw = (t?.status ?? '').toString().trim().toLowerCase();
-      const status = raw.replace(/\s+/g,'_').replace(/-+/g,'_');
-
-      // Treat common aliases as empty plots
-      const isEmpty = status === 'empty_plot' || status === 'empty' || status === 'empty_pitch' || status === 'plot_only' || status === 'vacant_plot';
-      if (isEmpty) {
-        return { stroke: '#808080', strokeOpacity: 0.65, fill: '#FFFFFF', extra: '' };
-      }
-
-      let fill = STAT_FILL[status] || '#b3b3b3';
-      const extra = status==='out_of_service' ? 'hatch' : '';
-      return { stroke: '#808080', strokeOpacity: 0.65, fill, extra };
+      const status = raw.replace(/[\s-]+/g,'_');
+      const isEmpty = ['empty_plot','empty','empty_pitch','plot_only','vacant_plot'].includes(status);
+      const zoneFill = tintForZone(t?.zone || '');
+      const fill = isEmpty ? '#FFFFFF' : zoneFill;
+      const extra = (status==='out_of_service') ? 'hatch' : '';
+      return { stroke: '#000', strokeOpacity: 0.28, fill, extra };
     }
     function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
   </script>
@@ -218,6 +235,7 @@
       const NS = 'http://www.w3.org/2000/svg';
       const nodes = [];
       const ownTagById = new Map();
+      const statusDotById = new Map();
       data.shapes.sort((a,b)=> (a.z||0) - (b.z||0));
       for (const s of data.shapes) {
         if (s.type === 'Line') continue;
@@ -241,7 +259,23 @@
         el.dataset.ownership = getOwnership(t);
         nodes.push(el);
         svg.appendChild(el);
-        // Ownership left-edge stripe
+        // Status dot (top-right inside the van)
+        const dot = document.createElementNS(NS, 'circle');
+        const r = Math.max(2.2, Math.min(w, h) * 0.16);
+        let dx = w - r - 1, dy = r + 1;
+        const cx = x + dx, cy = y + dy;
+        dot.setAttribute('cx', cx);
+        dot.setAttribute('cy', cy);
+        dot.setAttribute('r', r);
+        dot.setAttribute('class','statusDot');
+        // colour will be set in updateStatusOverlays()
+        if (s.rotation_deg) {
+          const rcx = x + w/2, rcy = y + h/2;
+          dot.setAttribute('transform', `rotate(${s.rotation_deg} ${rcx} ${rcy})`);
+        }
+        svg.appendChild(dot);
+        statusDotById.set(s.id, dot);
+        // Ownership left-edge stripe (hidden until toggled on)
         const own = getOwnership(t);
         const stripeW = Math.min(w * 0.14, 3.5);
         const tag = document.createElementNS(NS, 'rect');
@@ -252,32 +286,45 @@
         tag.setAttribute('fill', OWN_BORDER[own] || '#4a4a4a');
         tag.setAttribute('class', 'ownTag');
         tag.setAttribute('vector-effect','non-scaling-stroke');
-        tag.setAttribute('stroke', '#ffffff');
-        tag.setAttribute('stroke-opacity', '0.7');
+        tag.style.display = 'none';
         if (s.rotation_deg) {
-          const cx = x + w/2, cy = y + h/2;
-          tag.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
+          const rcx = x + w/2, rcy = y + h/2;
+          tag.setAttribute('transform', `rotate(${s.rotation_deg} ${rcx} ${rcy})`);
         }
         svg.appendChild(tag);
         ownTagById.set(s.id, tag);
       }
-      function applyOwnershipRenderMode(){
-        const colourBorders = document.getElementById('toggleBorderMode').checked;
+      function updateStatusOverlays(){
+        const show = document.getElementById('toggleStatus').checked;
         nodes.forEach(n => {
-          const t = sheet.byId[n.dataset.id];
-          const own = getOwnership(t);
+          const t = sheet.byId[n.dataset.id] || {};
+          const dot = statusDotById.get(n.dataset.id);
+          if (!dot) return;
+          if (!show || n.style.display==='none') { dot.style.display='none'; return; }
+          let color = '';
+          if ((t.clean_status||'').toLowerCase()==='due') color = STATUS_DOT.cleaning;
+          if ((t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) color = STATUS_DOT.maintenance;
+          if ((t.site_fee_status||'').toLowerCase()==='overdue') color = STATUS_DOT.fees;
+          if (color) { dot.setAttribute('fill', color); dot.style.display=''; }
+          else { dot.style.display='none'; }
+        });
+        // handle hatch overlay for OOS
+        nodes.forEach(n => {
+          const t = sheet.byId[n.dataset.id] || {};
+          const raw = (t.status||'').toString().trim().toLowerCase();
+          const status = raw.replace(/[\s-]+/g,'_');
+          if (status==='out_of_service' && show) n.classList.add('hatch'); else n.classList.remove('hatch');
+        });
+      }
+
+      function updateOwnershipOverlays(){
+        const show = document.getElementById('toggleOwnership').checked;
+        const legendOwn = document.getElementById('legendOwn');
+        if (legendOwn) legendOwn.style.display = show ? '' : 'none';
+        nodes.forEach(n => {
           const tag = ownTagById.get(n.dataset.id);
-          if (colourBorders){
-            // Use coloured borders, hide corner tags
-            n.setAttribute('stroke', OWN_BORDER[own] || '#4a4a4a');
-            if (tag) tag.style.display = 'none';
-          } else {
-            // Neutral borders + show corner tags (unless pitch hidden)
-            n.setAttribute('stroke', '#808080');
-            n.style.strokeOpacity = 0.85;
-            n.style.strokeWidth = '1px';
-            if (tag) tag.style.display = (n.style.display === 'none') ? 'none' : '';
-          }
+          if (!tag) return;
+          tag.style.display = (show && n.style.display !== 'none') ? '' : 'none';
         });
       }
       // Append labels layer last so it sits above background and pitches
@@ -386,8 +433,10 @@
           n.style.display = (okZ && okO) ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const dot = statusDotById.get(n.dataset.id);
+          if (dot) dot.style.display = (n.style.display==='none' || !document.getElementById('toggleStatus').checked) ? 'none' : dot.style.display;
           const tag = ownTagById.get(n.dataset.id);
-          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
+          if (tag) tag.style.display = (n.style.display==='none' || !document.getElementById('toggleOwnership').checked) ? 'none' : tag.style.display;
         });
       }
       document.getElementById('fZone').onchange = applyFilters;
@@ -399,9 +448,13 @@
           n.style.display = (t && (t.clean_status||'').toLowerCase()==='due') ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const dot = statusDotById.get(n.dataset.id);
+          if (dot) dot.style.display = (n.style.display==='none' || !document.getElementById('toggleStatus').checked) ? 'none' : dot.style.display;
           const tag = ownTagById.get(n.dataset.id);
-          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
+          if (tag) tag.style.display = (n.style.display==='none' || !document.getElementById('toggleOwnership').checked) ? 'none' : tag.style.display;
         });
+        updateStatusOverlays();
+        updateOwnershipOverlays();
       };
       document.getElementById('showMaint').onclick = () => {
         nodes.forEach(n => {
@@ -409,9 +462,13 @@
           n.style.display = (t && (t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const dot = statusDotById.get(n.dataset.id);
+          if (dot) dot.style.display = (n.style.display==='none' || !document.getElementById('toggleStatus').checked) ? 'none' : dot.style.display;
           const tag = ownTagById.get(n.dataset.id);
-          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
+          if (tag) tag.style.display = (n.style.display==='none' || !document.getElementById('toggleOwnership').checked) ? 'none' : tag.style.display;
         });
+        updateStatusOverlays();
+        updateOwnershipOverlays();
       };
       document.getElementById('showEmpty').onclick = () => {
         nodes.forEach(n => {
@@ -422,27 +479,33 @@
           n.style.display = isEmpty ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const dot = statusDotById.get(n.dataset.id);
+          if (dot) dot.style.display = (n.style.display==='none' || !document.getElementById('toggleStatus').checked) ? 'none' : dot.style.display;
           const tag = ownTagById.get(n.dataset.id);
-          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
+          if (tag) tag.style.display = (n.style.display==='none' || !document.getElementById('toggleOwnership').checked) ? 'none' : tag.style.display;
         });
+        updateStatusOverlays();
+        updateOwnershipOverlays();
       };
       document.getElementById('clearFilters').onclick = () => {
         document.getElementById('fZone').value='*';
         document.getElementById('fOwner').value='*';
         applyFilters();
         syncLabelVisibility();
-        applyOwnershipRenderMode();
+        updateStatusOverlays();
+        updateOwnershipOverlays();
       };
 
       // Pitch number toggle
       const toggle = document.getElementById('toggleNums');
       toggle.addEventListener('change', syncLabelVisibility);
-
-      document.getElementById('toggleBorderMode').addEventListener('change', applyOwnershipRenderMode);
+      document.getElementById('toggleStatus').addEventListener('change', updateStatusOverlays);
+      document.getElementById('toggleOwnership').addEventListener('change', updateOwnershipOverlays);
 
       // Build labels once geometry is present
       rebuildLabels();
-      applyOwnershipRenderMode();
+      updateStatusOverlays();
+      updateOwnershipOverlays();
     }
     boot();
   </script>
