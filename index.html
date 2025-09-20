@@ -25,9 +25,9 @@
       margin: 0 auto;
       background: transparent;
       position: relative;
-      height: calc(100vh - var(--toolbar-h));   /* fallback */
-      height: calc(100svh - var(--toolbar-h));  /* small viewport height */
-      height: calc(100dvh - var(--toolbar-h));  /* dynamic viewport height (best) */
+      height: calc(100vh - var(--toolbar-h) + 2px);  /* fallback */
+      height: calc(100svh - var(--toolbar-h) + 2px);  /* small viewport height */
+      height: calc(100dvh - var(--toolbar-h) + 2px);  /* dynamic viewport height (best) */
       /* aspect-ratio set in JS after reading JSON */
     }
     #map {
@@ -118,8 +118,12 @@
         Show pitch numbers
       </label>
       <label style="display:flex;align-items:center;gap:6px;">
-        <input type="checkbox" id="toggleStatus" checked />
-        Show status
+      <input type="checkbox" id="toggleStatus" checked />
+        Show status indicators
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;"> 
+      <input type="checkbox" id="toggleLegend" checked />
+        Legend
       </label>
       <label style="display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="toggleOwnership" />
@@ -579,6 +583,13 @@
         });
       }
       buildSvgLegend(svg, zones);
+      function updateLegendVisibility(){
+        const show = document.getElementById('toggleLegend').checked;
+        const legend = document.getElementById('mapLegend');
+        if (legend) legend.style.display = show ? '' : 'none';
+      }
+      document.getElementById('toggleLegend').addEventListener('change', updateLegendVisibility);
+      updateLegendVisibility();
       // Append labels layer last so it sits above background and pitches
       svg.appendChild(labelsLayer);
       // Build pitch number labels, centred on each pitch rect
