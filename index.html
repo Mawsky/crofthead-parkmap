@@ -210,7 +210,7 @@
         const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
         const widthNow = frame.clientWidth || window.innerWidth; // current frame width
         const ideal = widthNow * (H / W);                        // ideal height for this width
-        const h = Math.max(available, ideal); // prefer full aspect height; page may scroll
+        const h = Math.min(available, ideal); // no letterbox above; top-aligned map fits without scroll
         frame.style.height = h + 'px';
 }
 
@@ -243,7 +243,7 @@
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
       function buildSvgLegend(svg, zonesList){
   const NS = 'http://www.w3.org/2000/svg';
-  const pad = 8, boxW = 170, lineH = 10, sw = 12, gap = 6;
+  const pad = 8, boxW = 170, lineH = 12, sw = 12, gap = 6;
   const offsetRight = 60; // nudge further left from the edge to avoid plots
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('id','mapLegend');
