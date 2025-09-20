@@ -288,8 +288,8 @@
       function buildSvgLegend(svg, zonesList){
         const NS = 'http://www.w3.org/2000/svg';
         // Slimmer legend @ ~80% scale
-        const pad = 12, boxW = 150, lineH = 11, sw = 12, gap = 6;
-        const offsetRight = 72; // keep clear of right-side empty plots
+        const pad = 12, boxW = 140, lineH = 12, sw = 12, gap = 6;
+        const offsetRight = 90; // keep clear of right-side empty plots
 
         const bgX = W - boxW - pad - offsetRight;
         const bgY = pad + 24; // keep current vertical position
@@ -311,7 +311,7 @@
         bgRect.setAttribute('stroke-width', '1');
         g.appendChild(bgRect);
 
-        let y = bgY + 16;
+        let y = bgY + 12;
 
         // Title (slightly smaller)
         const title = document.createElementNS(NS,'text');
@@ -461,7 +461,7 @@
         y += lineH * 2;
 
         // Finalise height
-        bgRect.setAttribute('height', (y + pad) - bgY);
+        bgRect.setAttribute('height', (y + pad - 4) - bgY);
         svg.appendChild(g);
       }
 
