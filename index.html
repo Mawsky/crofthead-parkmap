@@ -175,8 +175,19 @@
       const raw = (t?.status ?? '').toString().trim().toLowerCase();
       const status = raw.replace(/[\s-]+/g,'_');
       const isEmpty = ['empty_plot','empty','empty_pitch','plot_only','vacant_plot'].includes(status);
-      const zoneFill = tintForZone(t?.zone || '');
-      const fill = isEmpty ? '#FFFFFF' : zoneFill;
+      const hasZone = !!(t?.zone && t.zone.trim());
+      const hasPitch = !!(t?.pitch_no && t.pitch_no.trim());
+      const isUnassigned = !isEmpty && (!hasZone || !hasPitch);
+
+      let fill;
+      if (isEmpty) {
+        fill = '#FFFFFF'; // true empty = white
+      } else if (isUnassigned) {
+        fill = '#E6E6E6'; // unassigned = grey
+      } else {
+        fill = tintForZone(t?.zone || '');
+      }
+
       const extra = (status==='out_of_service') ? 'hatch' : '';
       return { stroke: '#000', strokeOpacity: 0.28, fill, extra };
     }
