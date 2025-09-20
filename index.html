@@ -192,8 +192,16 @@
 
       const svg = document.getElementById('map');
       const frame = document.getElementById('frame');
-      frame.style.aspectRatio = `${W} / ${H}`;
+
+      function sizeFrame(){
+        const toolbar = document.getElementById('toolbar');
+        const h = Math.max(100, window.innerHeight - toolbar.offsetHeight);
+        frame.style.height = h + 'px';
+      }
+
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      sizeFrame();
+      window.addEventListener('resize', sizeFrame);
 
       // Layer for pitch number labels (kept above background, below ticket)
       const labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -220,15 +228,15 @@
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
       function buildSvgLegend(svg, zonesList){
   const NS = 'http://www.w3.org/2000/svg';
-  const pad = 8, boxW = 180, lineH = 11, sw = 12, gap = 6;
-  const offsetRight = 28; // nudge left from the edge to avoid plots
+  const pad = 8, boxW = 170, lineH = 11, sw = 12, gap = 6;
+  const offsetRight = 42; // nudge further left from the edge to avoid plots
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('id','mapLegend');
   g.setAttribute('pointer-events','none');
 
   const bgRect = document.createElementNS(NS, 'rect');
   bgRect.setAttribute('x', W - boxW - pad - offsetRight);
-  bgRect.setAttribute('y', pad + 8);
+  bgRect.setAttribute('y', pad + 6);
   bgRect.setAttribute('width', boxW);
   bgRect.setAttribute('height', 40);
   bgRect.setAttribute('rx', 8);
@@ -238,7 +246,7 @@
   bgRect.setAttribute('stroke-width', '1');
   g.appendChild(bgRect);
 
-  let y = pad + 8 + 14;
+  let y = pad + 6 + 12;
 
   const title = document.createElementNS(NS,'text');
   title.setAttribute('x', W - boxW - pad - offsetRight + 10);
