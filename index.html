@@ -287,17 +287,18 @@
 
       function buildSvgLegend(svg, zonesList){
         const NS = 'http://www.w3.org/2000/svg';
-        const pad = 12, boxW = 160, lineH = 12, sw = 12, gap = 6;
-        const offsetRight = 72; // ensure we clear the empty-plot area on the right
+        // Slimmer legend @ ~80% scale
+        const pad = 12, boxW = 150, lineH = 11, sw = 12, gap = 6;
+        const offsetRight = 72; // keep clear of right-side empty plots
 
         const bgX = W - boxW - pad - offsetRight;
-        const bgY = pad + 24;
+        const bgY = pad + 24; // keep current vertical position
 
         const g = document.createElementNS(NS, 'g');
         g.setAttribute('id','mapLegend');
         g.setAttribute('pointer-events','none');
 
-        // Background panel (height to be updated after layout)
+        // Background panel (height updated after layout)
         const bgRect = document.createElementNS(NS, 'rect');
         bgRect.setAttribute('x', bgX);
         bgRect.setAttribute('y', bgY);
@@ -312,29 +313,29 @@
 
         let y = bgY + 16;
 
-        // Title
+        // Title (slightly smaller)
         const title = document.createElementNS(NS,'text');
         title.setAttribute('x', bgX + 12);
         title.setAttribute('y', y);
         title.setAttribute('class','legend-text');
-        title.setAttribute('style','font-weight:600;font-size:9px;');
+        title.setAttribute('style','font-weight:600;font-size:8px;');
         title.textContent = 'Legend';
         g.appendChild(title);
         y += lineH + 2;
 
-        // Zones header
+        // Zones header (hair smaller)
         const zonesHdr = document.createElementNS(NS,'text');
         zonesHdr.setAttribute('x', bgX + 12);
         zonesHdr.setAttribute('y', y);
         zonesHdr.setAttribute('class','legend-text');
-        zonesHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        zonesHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
         zonesHdr.textContent = 'Zones';
         g.appendChild(zonesHdr);
         y += lineH;
 
-        // Unique, sorted zones
+        // Unique, sorted zones with wrapping
         const zones = Array.from(new Set(zonesList.filter(z => z && z.trim()))).sort();
-        const maxLabelW = boxW - 12 - sw - gap - 14; // padding minus swatch and margins
+        const maxLabelW = boxW - 12 - sw - gap - 12;
         zones.forEach(z => {
           const r = document.createElementNS(NS,'rect');
           r.setAttribute('x', bgX + 12);
@@ -365,7 +366,7 @@
         statusHdr.setAttribute('x', bgX + 12);
         statusHdr.setAttribute('y', y);
         statusHdr.setAttribute('class','legend-text');
-        statusHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        statusHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
         statusHdr.textContent = 'Status';
         g.appendChild(statusHdr);
         y += lineH;
@@ -374,7 +375,7 @@
           const c = document.createElementNS(NS,'circle');
           c.setAttribute('cx', bgX + 20);
           c.setAttribute('cy', y - 3);
-          c.setAttribute('r', 4);
+          c.setAttribute('r', 4); // smaller dot
           c.setAttribute('fill', color);
           c.setAttribute('stroke', '#333');
           c.setAttribute('stroke-width', '0.5');
@@ -418,7 +419,7 @@
         ownHdr.setAttribute('x', bgX + 12);
         ownHdr.setAttribute('y', y);
         ownHdr.setAttribute('class','legend-text');
-        ownHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        ownHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
         ownHdr.textContent = 'Ownership';
         g.appendChild(ownHdr);
         y += lineH;
@@ -441,13 +442,23 @@
         ownStripe.setAttribute('fill', OWN_BORDER.owner);
         g.appendChild(ownStripe);
 
+        // Force the text onto two lines: "Stripe = ownership" and "(when enabled)"
         const ownText = document.createElementNS(NS,'text');
         ownText.setAttribute('x', bgX + 12 + sw + gap);
         ownText.setAttribute('y', y);
         ownText.setAttribute('class','legend-text');
-        wrapSvgText(ownText, 'Stripe = ownership (when enabled)', maxLabelW);
+        const t1 = document.createElementNS(NS,'tspan');
+        t1.setAttribute('x', bgX + 12 + sw + gap);
+        t1.setAttribute('dy', '0');
+        t1.textContent = 'Stripe = ownership';
+        ownText.appendChild(t1);
+        const t2 = document.createElementNS(NS,'tspan');
+        t2.setAttribute('x', bgX + 12 + sw + gap);
+        t2.setAttribute('dy', '1.25em');
+        t2.textContent = '(when enabled)';
+        ownText.appendChild(t2);
         g.appendChild(ownText);
-        y += lineH;
+        y += lineH * 2;
 
         // Finalise height
         bgRect.setAttribute('height', (y + pad) - bgY);
