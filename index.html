@@ -189,7 +189,7 @@
       }
 
       const extra = (status==='out_of_service') ? 'hatch' : '';
-      const fillOpacity = isUnassigned ? 0.88 : 1;
+      const fillOpacity = isUnassigned ? 0.85 : 1;
       return { stroke: '#000', strokeOpacity: 0.28, fill, extra, fillOpacity };
     }
     function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
