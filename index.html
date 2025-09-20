@@ -29,10 +29,9 @@
       display: block;
     }
     .pitch { opacity: 0.95; }
-    .pitch:hover { opacity: 1; outline: 2px solid var(--hover-outline); cursor: pointer; }
     /* Subtler default borders and non-scaling stroke for clarity */
-    .pitch { stroke: #808080; stroke-opacity: 0.65; vector-effect: non-scaling-stroke; }
-    .pitch:hover { stroke-opacity: 1; stroke: #222; stroke-width: 2; }
+    .pitch { stroke: #808080; stroke-opacity: 0.85; stroke-width:1px; vector-effect: non-scaling-stroke; }
+    .pitch:hover { opacity: 1; stroke: #222; stroke-opacity:1; filter: drop-shadow(0 0 2px rgba(0,0,0,.6)); cursor: pointer; }
     .ownTag { pointer-events: none; }
     .tip {
       position: fixed; pointer-events: none;
@@ -234,7 +233,7 @@
         const {stroke, fill, extra, strokeOpacity} = colourFor(t);
         el.setAttribute('fill', fill);
         el.setAttribute('stroke', stroke);
-        if (typeof strokeOpacity !== 'undefined') el.style.strokeOpacity = 0.65;
+        if (typeof strokeOpacity !== 'undefined') el.style.strokeOpacity = strokeOpacity;
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
@@ -242,16 +241,19 @@
         el.dataset.ownership = getOwnership(t);
         nodes.push(el);
         svg.appendChild(el);
-        // Ownership corner tag (top-left of pitch)
+        // Ownership left-edge stripe
         const own = getOwnership(t);
-        const tagSize = Math.max(3, Math.min(w, h) * 0.22);
+        const stripeW = Math.min(w * 0.14, 3.5);
         const tag = document.createElementNS(NS, 'rect');
         tag.setAttribute('x', x);
         tag.setAttribute('y', y);
-        tag.setAttribute('width', tagSize);
-        tag.setAttribute('height', tagSize);
+        tag.setAttribute('width', stripeW);
+        tag.setAttribute('height', h);
         tag.setAttribute('fill', OWN_BORDER[own] || '#4a4a4a');
         tag.setAttribute('class', 'ownTag');
+        tag.setAttribute('vector-effect','non-scaling-stroke');
+        tag.setAttribute('stroke', '#ffffff');
+        tag.setAttribute('stroke-opacity', '0.7');
         if (s.rotation_deg) {
           const cx = x + w/2, cy = y + h/2;
           tag.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
@@ -272,7 +274,8 @@
           } else {
             // Neutral borders + show corner tags (unless pitch hidden)
             n.setAttribute('stroke', '#808080');
-            n.style.strokeOpacity = 0.65;
+            n.style.strokeOpacity = 0.85;
+            n.style.strokeWidth = '1px';
             if (tag) tag.style.display = (n.style.display === 'none') ? 'none' : '';
           }
         });
