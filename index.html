@@ -161,7 +161,7 @@
     const ZONE_TINT = Object.create(null); // optional explicit map: { carrick_view: 'hsla(210,70%,60%,0.20)', ... }
     function tintForZone(z){
       const key = norm(z);
-      if (!key) return 'hsla(0,0%,60%,0.12)';
+      if (!key) return 'hsl(0,0%,86%)';
       if (ZONE_TINT[key]) return ZONE_TINT[key];
       // deterministic pastel from string
       let h = 0; for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
@@ -189,7 +189,8 @@
       }
 
       const extra = (status==='out_of_service') ? 'hatch' : '';
-      return { stroke: '#000', strokeOpacity: 0.28, fill, extra };
+      const fillOpacity = isUnassigned ? 0.88 : 1;
+      return { stroke: '#000', strokeOpacity: 0.28, fill, extra, fillOpacity };
     }
     function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
   </script>
@@ -206,9 +207,12 @@
 
       function sizeFrame(){
         const toolbar = document.getElementById('toolbar');
-        const h = Math.max(100, window.innerHeight - toolbar.offsetHeight);
+        const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
+        const widthNow = frame.clientWidth || window.innerWidth; // current frame width
+        const ideal = widthNow * (H / W);                        // ideal height for this width
+        const h = Math.min(available, ideal);                    // smart fit: no letterbox, no overflow
         frame.style.height = h + 'px';
-      }
+}
 
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       sizeFrame();
@@ -421,10 +425,10 @@
           el.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
         }
         const t = sheet.byId[s.id];
-        const {stroke, fill, extra, strokeOpacity} = colourFor(t);
+        const {stroke, fill, extra, strokeOpacity, fillOpacity} = colourFor(t);
         el.setAttribute('fill', fill);
         el.setAttribute('stroke', stroke);
-        el.style.fillOpacity = '1';
+        el.style.fillOpacity = (typeof fillOpacity !== 'undefined') ? String(fillOpacity) : '1';
         if (typeof strokeOpacity !== 'undefined') el.style.strokeOpacity = strokeOpacity;
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
