@@ -210,7 +210,7 @@
         const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
         const widthNow = frame.clientWidth || window.innerWidth; // current frame width
         const ideal = widthNow * (H / W);                        // ideal height for this width
-        const h = Math.min(available, ideal);                    // smart fit: no letterbox, no overflow
+        const h = Math.max(available, ideal); // prefer full aspect height; page may scroll
         frame.style.height = h + 'px';
 }
 
