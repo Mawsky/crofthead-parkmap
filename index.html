@@ -10,10 +10,11 @@
       --frame-bg: #dfead6;
       --stroke: #4a4a4a;
       --hover-outline: #222;
+      --toolbar-h: 56px; /* will be updated at runtime */
     }
     html, body { height:100%; margin:0; background:var(--bg-soft); }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    #wrap { width:100%; margin:0 auto; display:flex; flex-direction:column; gap:0; }
+    #wrap { width:100%; margin:0 auto; display:grid; grid-template-rows:auto 1fr; min-height:100svh; gap:0; }
     #wrap, #toolbar, #frame { line-height: 0; }
     #toolbar { margin-bottom: 0; }
     #frame { margin-top: 0; padding-top: 0; }
@@ -24,6 +25,7 @@
       margin: 0 auto;
       background: transparent;
       position: relative;
+      height: calc(100svh - var(--toolbar-h));
       /* aspect-ratio set in JS after reading JSON */
     }
     #map {
@@ -50,6 +52,13 @@
   background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px;
 }
 @media (max-width:1280px){ #legend { display:none !important; } }
+
+@media (max-width: 1024px){
+  #toolbar { flex-wrap: wrap; row-gap: 6px; }
+  #toolbar label { font-size: 14px; }
+  #toolbar button { padding:4px 8px; }
+  .toolbar-title { display:none; }
+}
     #brandBlock { display:flex; align-items:center; justify-content:center; height:56px; padding:0 12px; background: currentColor; }
     #brandLogo { height:36px; width:auto; display:block; }
     .toolbar-title { margin-left:auto; font-weight:600; }
@@ -205,18 +214,15 @@
       const svg = document.getElementById('map');
       const frame = document.getElementById('frame');
 
-      function sizeFrame(){
-        const toolbar = document.getElementById('toolbar');
-        const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
-        const widthNow = frame.clientWidth || window.innerWidth; // current frame width
-        const ideal = widthNow * (H / W);                        // ideal height for this width
-        const h = Math.min(available, ideal);                    // top-lock without spare space
-        frame.style.height = h + 'px';
+      function setToolbarVar(){
+        const th = document.getElementById('toolbar').getBoundingClientRect().height;
+        document.documentElement.style.setProperty('--toolbar-h', th + 'px');
       }
 
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      sizeFrame();
-      window.addEventListener('resize', sizeFrame);
+      setToolbarVar();
+      window.addEventListener('resize', setToolbarVar);
+      window.addEventListener('orientationchange', setToolbarVar);
 
       // Layer for pitch number labels (kept above background, below ticket)
       const labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
