@@ -15,7 +15,7 @@
     html, body { height:100%; margin:0; background:var(--bg-soft); }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     #wrap { width:100%; margin:0 auto; display:grid; grid-template-rows:auto 1fr; min-height:100svh; gap:0; }
-    #wrap, #toolbar, #frame { line-height: 0; }
+    #wrap { line-height: 0; }
     #toolbar { margin-bottom: 0; }
     #frame { margin-top: 0; padding-top: 0; }
     #panel { padding:8px 12px; }
@@ -25,7 +25,9 @@
       margin: 0 auto;
       background: transparent;
       position: relative;
-      height: calc(100svh - var(--toolbar-h));
+      height: calc(100vh - var(--toolbar-h));   /* fallback */
+      height: calc(100svh - var(--toolbar-h));  /* small viewport height */
+      height: calc(100dvh - var(--toolbar-h));  /* dynamic viewport height (best) */
       /* aspect-ratio set in JS after reading JSON */
     }
     #map {
@@ -214,13 +216,15 @@
       const svg = document.getElementById('map');
       const frame = document.getElementById('frame');
 
+      const toolbarEl = document.getElementById('toolbar');
       function setToolbarVar(){
-        const th = document.getElementById('toolbar').getBoundingClientRect().height;
+        const th = toolbarEl.getBoundingClientRect().height;
         document.documentElement.style.setProperty('--toolbar-h', th + 'px');
       }
 
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       setToolbarVar();
+      new ResizeObserver(setToolbarVar).observe(toolbarEl);
       window.addEventListener('resize', setToolbarVar);
       window.addEventListener('orientationchange', setToolbarVar);
 
