@@ -30,6 +30,10 @@
     }
     .pitch { opacity: 0.95; }
     .pitch:hover { opacity: 1; outline: 2px solid var(--hover-outline); cursor: pointer; }
+    /* Subtler default borders and non-scaling stroke for clarity */
+    .pitch { stroke: #808080; stroke-opacity: 0.65; vector-effect: non-scaling-stroke; }
+    .pitch:hover { stroke-opacity: 1; stroke: #222; stroke-width: 2; }
+    .ownTag { pointer-events: none; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -91,6 +95,10 @@
         </select>
       </label>
       <label style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="toggleBorderMode" />
+        Colour borders
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="toggleNums" />
         Show pitch numbers
       </label>
@@ -140,19 +148,17 @@
     function colourFor(t){
       // Normalise status to be forgiving: spaces/dashes -> underscore
       const raw = (t?.status ?? '').toString().trim().toLowerCase();
-      const status = raw.replace(/[\s-]+/g,'_');
+      const status = raw.replace(/\s+/g,'_').replace(/-+/g,'_');
 
       // Treat common aliases as empty plots
       const isEmpty = status === 'empty_plot' || status === 'empty' || status === 'empty_pitch' || status === 'plot_only' || status === 'vacant_plot';
       if (isEmpty) {
-        return { stroke: '#999999', fill: '#FFFFFF', extra: '' };
+        return { stroke: '#808080', strokeOpacity: 0.65, fill: '#FFFFFF', extra: '' };
       }
 
-      const own = getOwnership(t);
-      const stroke = OWN_BORDER[own] || '#4a4a4a';
       let fill = STAT_FILL[status] || '#b3b3b3';
       const extra = status==='out_of_service' ? 'hatch' : '';
-      return {stroke, fill, extra};
+      return { stroke: '#808080', strokeOpacity: 0.65, fill, extra };
     }
     function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
   </script>
@@ -212,6 +218,7 @@
       // 3) Draw shapes joined with ticket data
       const NS = 'http://www.w3.org/2000/svg';
       const nodes = [];
+      const ownTagById = new Map();
       data.shapes.sort((a,b)=> (a.z||0) - (b.z||0));
       for (const s of data.shapes) {
         if (s.type === 'Line') continue;
@@ -224,9 +231,10 @@
           el.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
         }
         const t = sheet.byId[s.id];
-        const {stroke, fill, extra} = colourFor(t);
+        const {stroke, fill, extra, strokeOpacity} = colourFor(t);
         el.setAttribute('fill', fill);
         el.setAttribute('stroke', stroke);
+        if (typeof strokeOpacity !== 'undefined') el.style.strokeOpacity = 0.65;
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
         el.dataset.id = s.id;
@@ -234,6 +242,40 @@
         el.dataset.ownership = getOwnership(t);
         nodes.push(el);
         svg.appendChild(el);
+        // Ownership corner tag (top-left of pitch)
+        const own = getOwnership(t);
+        const tagSize = Math.max(3, Math.min(w, h) * 0.22);
+        const tag = document.createElementNS(NS, 'rect');
+        tag.setAttribute('x', x);
+        tag.setAttribute('y', y);
+        tag.setAttribute('width', tagSize);
+        tag.setAttribute('height', tagSize);
+        tag.setAttribute('fill', OWN_BORDER[own] || '#4a4a4a');
+        tag.setAttribute('class', 'ownTag');
+        if (s.rotation_deg) {
+          const cx = x + w/2, cy = y + h/2;
+          tag.setAttribute('transform', `rotate(${s.rotation_deg} ${cx} ${cy})`);
+        }
+        svg.appendChild(tag);
+        ownTagById.set(s.id, tag);
+      }
+      function applyOwnershipRenderMode(){
+        const colourBorders = document.getElementById('toggleBorderMode').checked;
+        nodes.forEach(n => {
+          const t = sheet.byId[n.dataset.id];
+          const own = getOwnership(t);
+          const tag = ownTagById.get(n.dataset.id);
+          if (colourBorders){
+            // Use coloured borders, hide corner tags
+            n.setAttribute('stroke', OWN_BORDER[own] || '#4a4a4a');
+            if (tag) tag.style.display = 'none';
+          } else {
+            // Neutral borders + show corner tags (unless pitch hidden)
+            n.setAttribute('stroke', '#808080');
+            n.style.strokeOpacity = 0.65;
+            if (tag) tag.style.display = (n.style.display === 'none') ? 'none' : '';
+          }
+        });
       }
       // Append labels layer last so it sits above background and pitches
       svg.appendChild(labelsLayer);
@@ -341,6 +383,8 @@
           n.style.display = (okZ && okO) ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const tag = ownTagById.get(n.dataset.id);
+          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
         });
       }
       document.getElementById('fZone').onchange = applyFilters;
@@ -352,6 +396,8 @@
           n.style.display = (t && (t.clean_status||'').toLowerCase()==='due') ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const tag = ownTagById.get(n.dataset.id);
+          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
         });
       };
       document.getElementById('showMaint').onclick = () => {
@@ -360,6 +406,8 @@
           n.style.display = (t && (t.maint_status||'').toLowerCase()!=='ok' && t.maint_status) ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const tag = ownTagById.get(n.dataset.id);
+          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
         });
       };
       document.getElementById('showEmpty').onclick = () => {
@@ -371,6 +419,8 @@
           n.style.display = isEmpty ? '' : 'none';
           const lbl = labelById.get(n.dataset.id);
           if (lbl) lbl.style.display = n.style.display === 'none' ? 'none' : '';
+          const tag = ownTagById.get(n.dataset.id);
+          if (tag) tag.style.display = n.style.display === 'none' ? 'none' : (document.getElementById('toggleBorderMode').checked ? 'none' : '');
         });
       };
       document.getElementById('clearFilters').onclick = () => {
@@ -378,14 +428,18 @@
         document.getElementById('fOwner').value='*';
         applyFilters();
         syncLabelVisibility();
+        applyOwnershipRenderMode();
       };
 
       // Pitch number toggle
       const toggle = document.getElementById('toggleNums');
       toggle.addEventListener('change', syncLabelVisibility);
 
+      document.getElementById('toggleBorderMode').addEventListener('change', applyOwnershipRenderMode);
+
       // Build labels once geometry is present
       rebuildLabels();
+      applyOwnershipRenderMode();
     }
     boot();
   </script>
