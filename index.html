@@ -48,11 +48,12 @@
       font-size: 12px; opacity: 0; transition: opacity .12s;
       z-index: 10;
     }
-#toolbar {
-  display:flex; gap:8px; align-items:center; padding:0 12px;
-  flex-wrap:nowrap; overflow-x:auto;
-  background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px;
-}
+  #toolbar {
+    display:flex; gap:8px; align-items:center; padding:0 12px;
+    flex-wrap: wrap;                 /* allow wrapping on narrow widths */
+    background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px;
+  }
+  .tool { display:flex; align-items:center; gap:6px; white-space:nowrap; flex:0 0 auto; }
 @media (max-width:1280px){ #legend { display:none !important; } }
 
 @media (max-width: 1024px){
@@ -60,6 +61,7 @@
   #toolbar label { font-size: 14px; }
   #toolbar button { padding:4px 8px; }
   .toolbar-title { display:none; }
+  select { max-width: 150px; }
 }
     #brandBlock { display:flex; align-items:center; justify-content:center; height:56px; padding:0 12px; background: currentColor; }
     #brandLogo { height:36px; width:auto; display:block; }
@@ -102,10 +104,10 @@
       <div id="brandBlock">
         <img id="brandLogo" src="./Crofthead_Harrison_Logo.jpeg" alt="Crofthead logo" />
       </div>
-      <label>Zone:
+      <label class="tool">Zone:
         <select id="fZone"><option value="*">All</option></select>
       </label>
-      <label>Ownership:
+      <label class="tool">Ownership:
         <select id="fOwner">
           <option value="*">All</option>
           <option value="owner">Owner</option>
@@ -113,21 +115,21 @@
           <option value="park_owned">Park-owned</option>
         </select>
       </label>
-      <label style="display:flex;align-items:center;gap:6px;">
+      <label class="tool">
         <input type="checkbox" id="toggleNums" />
-        Show pitch numbers
+        Pitch #
       </label>
-      <label style="display:flex;align-items:center;gap:6px;">
-      <input type="checkbox" id="toggleStatus" checked />
-        Show status indicators
+      <label class="tool">
+        <input type="checkbox" id="toggleStatus" checked />
+        Status
       </label>
-      <label style="display:flex;align-items:center;gap:6px;"> 
-      <input type="checkbox" id="toggleLegend" checked />
+      <label class="tool">
+        <input type="checkbox" id="toggleLegend" checked />
         Legend
       </label>
-      <label style="display:flex;align-items:center;gap:6px;">
+      <label class="tool">
         <input type="checkbox" id="toggleOwnership" />
-        Show ownership
+        Ownership
       </label>
       <span id="legend" style="display:none"></span>
       <button id="showCleaning">Cleaning</button>
@@ -465,7 +467,7 @@
         y += lineH * 2;
 
         // Finalise height
-        bgRect.setAttribute('height', (y + pad - 4) - bgY);
+        bgRect.setAttribute('height', (y + pad - 10) - bgY);
         svg.appendChild(g);
       }
 
