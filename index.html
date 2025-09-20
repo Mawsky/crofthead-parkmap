@@ -14,6 +14,9 @@
     html, body { height:100%; margin:0; background:var(--bg-soft); }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     #wrap { width:100%; margin:0 auto; display:flex; flex-direction:column; gap:0; }
+    #wrap, #toolbar, #frame { line-height: 0; }
+    #toolbar { margin-bottom: 0; }
+    #frame { margin-top: 0; padding-top: 0; }
     #panel { padding:8px 12px; }
     /* Responsive aspect-ratio box; JS sets aspect-ratio: W/H */
     #frame {
@@ -28,12 +31,12 @@
       height: 100%;
       display: block;
     }
-    .pitch { opacity: 0.97; }
+    .pitch { opacity: 1; }
     /* Minimal borders + non-scaling stroke */
     .pitch { stroke: #000; stroke-opacity: 0.35; stroke-width:1px; vector-effect: non-scaling-stroke; }
     .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
     .ownTag, .statusDot { pointer-events: none; }
-    .legend-text { font-size: 11px; fill: #1f3a4a; dominant-baseline: middle; }
+    .legend-text { font-size: 10px; fill: #1f3a4a; dominant-baseline: middle; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -217,14 +220,14 @@
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
       function buildSvgLegend(svg, zonesList){
   const NS = 'http://www.w3.org/2000/svg';
-  const pad = 12, boxW = 240, lineH = 14, sw = 18, gap = 6;
+  const pad = 10, boxW = 200, lineH = 12, sw = 14, gap = 6;
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('id','mapLegend');
   g.setAttribute('pointer-events','none');
 
   const bgRect = document.createElementNS(NS, 'rect');
   bgRect.setAttribute('x', W - boxW - pad);
-  bgRect.setAttribute('y', pad);
+  bgRect.setAttribute('y', pad + 60);
   bgRect.setAttribute('width', boxW);
   bgRect.setAttribute('height', 40);
   bgRect.setAttribute('rx', 8);
@@ -234,7 +237,7 @@
   bgRect.setAttribute('stroke-width', '1');
   g.appendChild(bgRect);
 
-  let y = pad + 16;
+  let y = pad + 60 + 14;
 
   const title = document.createElementNS(NS,'text');
   title.setAttribute('x', W - boxW - pad + 10);
@@ -242,7 +245,7 @@
   title.setAttribute('class','legend-text');
   title.textContent = 'Legend';
   g.appendChild(title);
-  y += 14;
+  y += 12;
 
   const zonesLabel = document.createElementNS(NS,'text');
   zonesLabel.setAttribute('x', W - boxW - pad + 10);
@@ -313,7 +316,7 @@
   oosRect.setAttribute('width', sw);
   oosRect.setAttribute('height', 10);
   oosRect.setAttribute('class','hatch');
-  oosRect.setAttribute('fill', '#fff');
+  oosRect.setAttribute('fill', '#f7f7f7');
   oosRect.setAttribute('stroke', '#000');
   oosRect.setAttribute('stroke-opacity', '0.25');
   g.appendChild(oosRect);
@@ -360,7 +363,7 @@
   g.appendChild(ownText);
 
   y += lineH;
-  const totalH = (y + 4) - pad;
+  const totalH = (y + 4) - (pad + 60);
   bgRect.setAttribute('height', totalH);
   svg.appendChild(g);
 }
@@ -401,6 +404,7 @@
         const {stroke, fill, extra, strokeOpacity} = colourFor(t);
         el.setAttribute('fill', fill);
         el.setAttribute('stroke', stroke);
+        el.style.fillOpacity = '1';
         if (typeof strokeOpacity !== 'undefined') el.style.strokeOpacity = strokeOpacity;
         el.setAttribute('stroke-width', ((s.stroke_w_pt || 0.75) * 1.333));
         el.setAttribute('class', extra ? 'pitch hatch' : 'pitch');
@@ -477,7 +481,7 @@
           tag.style.display = (show && n.style.display !== 'none') ? '' : 'none';
         });
       }
-      buildSvgLegend(svg, allZones);
+      buildSvgLegend(svg, zones);
       // Append labels layer last so it sits above background and pitches
       svg.appendChild(labelsLayer);
       // Build pitch number labels, centred on each pitch rect
