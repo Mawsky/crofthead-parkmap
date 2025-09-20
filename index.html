@@ -36,7 +36,7 @@
     .pitch { stroke: #000; stroke-opacity: 0.35; stroke-width:1px; vector-effect: non-scaling-stroke; }
     .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
     .ownTag, .statusDot { pointer-events: none; }
-    .legend-text { font-size: 10px; fill: #1f3a4a; dominant-baseline: middle; }
+    .legend-text { font-size: 9px; fill: #1f3a4a; dominant-baseline: middle; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -187,8 +187,8 @@
     async function boot() {
       // 1) Load geometry
       const data = await fetch('crofthead_map.json').then(r => r.json());
-      const W = Math.round(data.slide.width_pt);
-      const H = Math.round(data.slide.height_pt);
+      const W = data.slide.width_pt;
+      const H = data.slide.height_pt;
 
       const svg = document.getElementById('map');
       const frame = document.getElementById('frame');
@@ -220,14 +220,15 @@
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
       function buildSvgLegend(svg, zonesList){
   const NS = 'http://www.w3.org/2000/svg';
-  const pad = 10, boxW = 200, lineH = 12, sw = 14, gap = 6;
+  const pad = 8, boxW = 180, lineH = 11, sw = 12, gap = 6;
+  const offsetRight = 28; // nudge left from the edge to avoid plots
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('id','mapLegend');
   g.setAttribute('pointer-events','none');
 
   const bgRect = document.createElementNS(NS, 'rect');
-  bgRect.setAttribute('x', W - boxW - pad);
-  bgRect.setAttribute('y', pad + 60);
+  bgRect.setAttribute('x', W - boxW - pad - offsetRight);
+  bgRect.setAttribute('y', pad + 8);
   bgRect.setAttribute('width', boxW);
   bgRect.setAttribute('height', 40);
   bgRect.setAttribute('rx', 8);
@@ -237,10 +238,10 @@
   bgRect.setAttribute('stroke-width', '1');
   g.appendChild(bgRect);
 
-  let y = pad + 60 + 14;
+  let y = pad + 8 + 14;
 
   const title = document.createElementNS(NS,'text');
-  title.setAttribute('x', W - boxW - pad + 10);
+  title.setAttribute('x', W - boxW - pad - offsetRight + 10);
   title.setAttribute('y', y);
   title.setAttribute('class','legend-text');
   title.textContent = 'Legend';
@@ -248,7 +249,7 @@
   y += 12;
 
   const zonesLabel = document.createElementNS(NS,'text');
-  zonesLabel.setAttribute('x', W - boxW - pad + 10);
+  zonesLabel.setAttribute('x', W - boxW - pad - offsetRight + 10);
   zonesLabel.setAttribute('y', y);
   zonesLabel.setAttribute('class','legend-text');
   zonesLabel.textContent = 'Zones';
@@ -262,7 +263,7 @@
     const color = tintForZone(z);
 
     const r = document.createElementNS(NS,'rect');
-    r.setAttribute('x', W - boxW - pad + 10);
+    r.setAttribute('x', W - boxW - pad - offsetRight + 10);
     r.setAttribute('y', y - 8);
     r.setAttribute('width', sw);
     r.setAttribute('height', 10);
@@ -273,7 +274,7 @@
     g.appendChild(r);
 
     const t = document.createElementNS(NS,'text');
-    t.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+    t.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
     t.setAttribute('y', y);
     t.setAttribute('class','legend-text');
     t.textContent = z;
@@ -283,7 +284,7 @@
   });
 
   const statusHeader = document.createElementNS(NS,'text');
-  statusHeader.setAttribute('x', W - boxW - pad + 10);
+  statusHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
   statusHeader.setAttribute('y', y);
   statusHeader.setAttribute('class','legend-text');
   statusHeader.textContent = 'Status';
@@ -292,14 +293,14 @@
 
   const addDot = (label, color) => {
     const c = document.createElementNS(NS,'circle');
-    c.setAttribute('cx', W - boxW - pad + 15);
+    c.setAttribute('cx', W - boxW - pad - offsetRight + 15);
     c.setAttribute('cy', y - 3);
     c.setAttribute('r', 4);
     c.setAttribute('fill', color);
     g.appendChild(c);
 
     const tx = document.createElementNS(NS,'text');
-    tx.setAttribute('x', W - boxW - pad + 24);
+    tx.setAttribute('x', W - boxW - pad - offsetRight + 24);
     tx.setAttribute('y', y - 1);
     tx.setAttribute('class','legend-text');
     tx.textContent = label;
@@ -311,7 +312,7 @@
   addDot('Maint', STATUS_DOT.maintenance);
 
   const oosRect = document.createElementNS(NS,'rect');
-  oosRect.setAttribute('x', W - boxW - pad + 10);
+  oosRect.setAttribute('x', W - boxW - pad - offsetRight + 10);
   oosRect.setAttribute('y', y - 10);
   oosRect.setAttribute('width', sw);
   oosRect.setAttribute('height', 10);
@@ -322,7 +323,7 @@
   g.appendChild(oosRect);
 
   const oosT = document.createElementNS(NS,'text');
-  oosT.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+  oosT.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
   oosT.setAttribute('y', y - 1);
   oosT.setAttribute('class','legend-text');
   oosT.textContent = 'Out of service';
@@ -330,7 +331,7 @@
   y += lineH;
 
   const ownHeader = document.createElementNS(NS,'text');
-  ownHeader.setAttribute('x', W - boxW - pad + 10);
+  ownHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
   ownHeader.setAttribute('y', y);
   ownHeader.setAttribute('class','legend-text');
   ownHeader.textContent = 'Ownership';
@@ -338,7 +339,7 @@
   y += 10;
 
   const ownBox = document.createElementNS(NS,'rect');
-  ownBox.setAttribute('x', W - boxW - pad + 10);
+  ownBox.setAttribute('x', W - boxW - pad - offsetRight + 10);
   ownBox.setAttribute('y', y - 10);
   ownBox.setAttribute('width', sw);
   ownBox.setAttribute('height', 10);
@@ -348,7 +349,7 @@
   g.appendChild(ownBox);
 
   const ownStripe = document.createElementNS(NS,'rect');
-  ownStripe.setAttribute('x', W - boxW - pad + 10);
+  ownStripe.setAttribute('x', W - boxW - pad - offsetRight + 10);
   ownStripe.setAttribute('y', y - 10);
   ownStripe.setAttribute('width', 4);
   ownStripe.setAttribute('height', 10);
@@ -356,14 +357,14 @@
   g.appendChild(ownStripe);
 
   const ownText = document.createElementNS(NS,'text');
-  ownText.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+  ownText.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
   ownText.setAttribute('y', y - 1);
   ownText.setAttribute('class','legend-text');
   ownText.textContent = 'Stripe = ownership (when enabled)';
   g.appendChild(ownText);
 
   y += lineH;
-  const totalH = (y + 4) - (pad + 60);
+  const totalH = (y + 4) - (pad + 8);
   bgRect.setAttribute('height', totalH);
   svg.appendChild(g);
 }
