@@ -30,9 +30,10 @@
     }
     .pitch { opacity: 0.97; }
     /* Minimal borders + non-scaling stroke */
-    .pitch { stroke: #000; stroke-opacity: 0.28; stroke-width:1px; vector-effect: non-scaling-stroke; }
+    .pitch { stroke: #000; stroke-opacity: 0.35; stroke-width:1px; vector-effect: non-scaling-stroke; }
     .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
     .ownTag, .statusDot { pointer-events: none; }
+    .legend-text { font-size: 11px; fill: #1f3a4a; dominant-baseline: middle; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -40,7 +41,12 @@
       font-size: 12px; opacity: 0; transition: opacity .12s;
       z-index: 10;
     }
-    #toolbar { display:flex; gap:12px; align-items:center; padding:0 12px; flex-wrap:wrap; background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px; }
+#toolbar {
+  display:flex; gap:8px; align-items:center; padding:0 12px;
+  flex-wrap:nowrap; overflow-x:auto;
+  background:#fff; border-bottom:1px solid #e6e6e6; color:#1f3a4a; min-height:56px;
+}
+@media (max-width:1280px){ #legend { display:none !important; } }
     #brandBlock { display:flex; align-items:center; justify-content:center; height:56px; padding:0 12px; background: currentColor; }
     #brandLogo { height:36px; width:auto; display:block; }
     .toolbar-title { margin-left:auto; font-weight:600; }
@@ -105,15 +111,9 @@
         <input type="checkbox" id="toggleOwnership" />
         Show ownership
       </label>
-      <span id="legend" style="margin-left:auto; font-size:12px; color:#475a66; display:flex; align-items:center; gap:10px;">
-        <span>Legend:</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f2a900;margin-right:4px;"></span>Cleaning</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d64545;margin-right:4px;"></span>Maint</span>
-        <span><span style="display:inline-block;width:12px;height:8px;border:1px solid #999;background:linear-gradient(45deg, rgba(186,102,102,.35) 25%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 50%, rgba(186,102,102,.35) 50%, rgba(186,102,102,.35) 75%, rgba(0,0,0,0) 75%, rgba(0,0,0,0) 100%);background-size:6px 6px;margin-right:4px;display:inline-block;vertical-align:middle"></span>OOS</span>
-        <span id="legendOwn" style="display:none;"><span style="display:inline-block;width:12px;height:8px;border-left:3px solid #4C8BF5;margin-right:4px;"></span>Ownership stripe</span>
-      </span>
-      <button id="showCleaning">Cleaning due</button>
-      <button id="showMaint">Maintenance</button>
+      <span id="legend" style="display:none"></span>
+      <button id="showCleaning">Cleaning</button>
+      <button id="showMaint">Maint</button>
       <button id="showEmpty">Empty plots</button>
       <button id="clearFilters">Clear</button>
       <div class="toolbar-title">Interactive demo</div>
@@ -162,10 +162,11 @@
       if (ZONE_TINT[key]) return ZONE_TINT[key];
       // deterministic pastel from string
       let h = 0; for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
-      h = h % 360; const s = 55, l = 72, a = 0.20;
-      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+      h = h % 360; const s = 42, l = 85; // muted, pale solid tint
+      return `hsl(${h}, ${s}%, ${l}%)`;
     }
     const STATUS_DOT = { cleaning:'#f2a900', maintenance:'#d64545', fees:'#7b61ff' };
+    const titleCase = s => (s||'').toString().replace(/_/g,' ').replace(/\b\w/g, m=>m.toUpperCase());
 
     function colourFor(t){
       const raw = (t?.status ?? '').toString().trim().toLowerCase();
@@ -214,6 +215,155 @@
       path.setAttribute('stroke','#b66');
       path.setAttribute('stroke-width','1');
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
+      function buildSvgLegend(svg, zonesList){
+  const NS = 'http://www.w3.org/2000/svg';
+  const pad = 12, boxW = 240, lineH = 14, sw = 18, gap = 6;
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('id','mapLegend');
+  g.setAttribute('pointer-events','none');
+
+  const bgRect = document.createElementNS(NS, 'rect');
+  bgRect.setAttribute('x', W - boxW - pad);
+  bgRect.setAttribute('y', pad);
+  bgRect.setAttribute('width', boxW);
+  bgRect.setAttribute('height', 40);
+  bgRect.setAttribute('rx', 8);
+  bgRect.setAttribute('ry', 8);
+  bgRect.setAttribute('fill', 'rgba(255,255,255,0.8)');
+  bgRect.setAttribute('stroke', '#cfd8d3');
+  bgRect.setAttribute('stroke-width', '1');
+  g.appendChild(bgRect);
+
+  let y = pad + 16;
+
+  const title = document.createElementNS(NS,'text');
+  title.setAttribute('x', W - boxW - pad + 10);
+  title.setAttribute('y', y);
+  title.setAttribute('class','legend-text');
+  title.textContent = 'Legend';
+  g.appendChild(title);
+  y += 14;
+
+  const zonesLabel = document.createElementNS(NS,'text');
+  zonesLabel.setAttribute('x', W - boxW - pad + 10);
+  zonesLabel.setAttribute('y', y);
+  zonesLabel.setAttribute('class','legend-text');
+  zonesLabel.textContent = 'Zones';
+  g.appendChild(zonesLabel);
+  y += 10;
+
+  const shown = new Set();
+  zonesList.forEach(zRaw => {
+    const z = (zRaw||'').trim();
+    if(!z || shown.has(z)) return; shown.add(z);
+    const color = tintForZone(z);
+
+    const r = document.createElementNS(NS,'rect');
+    r.setAttribute('x', W - boxW - pad + 10);
+    r.setAttribute('y', y - 8);
+    r.setAttribute('width', sw);
+    r.setAttribute('height', 10);
+    r.setAttribute('fill', color);
+    r.setAttribute('stroke', '#000');
+    r.setAttribute('stroke-opacity', '0.25');
+    r.setAttribute('vector-effect','non-scaling-stroke');
+    g.appendChild(r);
+
+    const t = document.createElementNS(NS,'text');
+    t.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+    t.setAttribute('y', y);
+    t.setAttribute('class','legend-text');
+    t.textContent = z;
+    g.appendChild(t);
+
+    y += lineH;
+  });
+
+  const statusHeader = document.createElementNS(NS,'text');
+  statusHeader.setAttribute('x', W - boxW - pad + 10);
+  statusHeader.setAttribute('y', y);
+  statusHeader.setAttribute('class','legend-text');
+  statusHeader.textContent = 'Status';
+  g.appendChild(statusHeader);
+  y += 10;
+
+  const addDot = (label, color) => {
+    const c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx', W - boxW - pad + 15);
+    c.setAttribute('cy', y - 3);
+    c.setAttribute('r', 4);
+    c.setAttribute('fill', color);
+    g.appendChild(c);
+
+    const tx = document.createElementNS(NS,'text');
+    tx.setAttribute('x', W - boxW - pad + 24);
+    tx.setAttribute('y', y - 1);
+    tx.setAttribute('class','legend-text');
+    tx.textContent = label;
+    g.appendChild(tx);
+
+    y += lineH;
+  };
+  addDot('Cleaning', STATUS_DOT.cleaning);
+  addDot('Maint', STATUS_DOT.maintenance);
+
+  const oosRect = document.createElementNS(NS,'rect');
+  oosRect.setAttribute('x', W - boxW - pad + 10);
+  oosRect.setAttribute('y', y - 10);
+  oosRect.setAttribute('width', sw);
+  oosRect.setAttribute('height', 10);
+  oosRect.setAttribute('class','hatch');
+  oosRect.setAttribute('fill', '#fff');
+  oosRect.setAttribute('stroke', '#000');
+  oosRect.setAttribute('stroke-opacity', '0.25');
+  g.appendChild(oosRect);
+
+  const oosT = document.createElementNS(NS,'text');
+  oosT.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+  oosT.setAttribute('y', y - 1);
+  oosT.setAttribute('class','legend-text');
+  oosT.textContent = 'Out of service';
+  g.appendChild(oosT);
+  y += lineH;
+
+  const ownHeader = document.createElementNS(NS,'text');
+  ownHeader.setAttribute('x', W - boxW - pad + 10);
+  ownHeader.setAttribute('y', y);
+  ownHeader.setAttribute('class','legend-text');
+  ownHeader.textContent = 'Ownership';
+  g.appendChild(ownHeader);
+  y += 10;
+
+  const ownBox = document.createElementNS(NS,'rect');
+  ownBox.setAttribute('x', W - boxW - pad + 10);
+  ownBox.setAttribute('y', y - 10);
+  ownBox.setAttribute('width', sw);
+  ownBox.setAttribute('height', 10);
+  ownBox.setAttribute('fill', '#eee');
+  ownBox.setAttribute('stroke', '#000');
+  ownBox.setAttribute('stroke-opacity', '0.25');
+  g.appendChild(ownBox);
+
+  const ownStripe = document.createElementNS(NS,'rect');
+  ownStripe.setAttribute('x', W - boxW - pad + 10);
+  ownStripe.setAttribute('y', y - 10);
+  ownStripe.setAttribute('width', 4);
+  ownStripe.setAttribute('height', 10);
+  ownStripe.setAttribute('fill', OWN_BORDER.owner);
+  g.appendChild(ownStripe);
+
+  const ownText = document.createElementNS(NS,'text');
+  ownText.setAttribute('x', W - boxW - pad + 10 + sw + gap);
+  ownText.setAttribute('y', y - 1);
+  ownText.setAttribute('class','legend-text');
+  ownText.textContent = 'Stripe = ownership (when enabled)';
+  g.appendChild(ownText);
+
+  y += lineH;
+  const totalH = (y + 4) - pad;
+  bgRect.setAttribute('height', totalH);
+  svg.appendChild(g);
+}
 
       // 2) Load ticket data from Google Sheets (published CSV)
       let sheet = {rows:[], byId:{}};
@@ -327,6 +477,7 @@
           tag.style.display = (show && n.style.display !== 'none') ? '' : 'none';
         });
       }
+      buildSvgLegend(svg, allZones);
       // Append labels layer last so it sits above background and pitches
       svg.appendChild(labelsLayer);
       // Build pitch number labels, centred on each pitch rect
