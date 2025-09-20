@@ -36,7 +36,7 @@
     .pitch { stroke: #000; stroke-opacity: 0.35; stroke-width:1px; vector-effect: non-scaling-stroke; }
     .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
     .ownTag, .statusDot { pointer-events: none; }
-    .legend-text { font-size: 9px; fill: #1f3a4a; dominant-baseline: middle; }
+    .legend-text { font-size: 8px; fill: #1f3a4a; dominant-baseline: middle; }
     .tip {
       position: fixed; pointer-events: none;
       background: #111; color: #fff;
@@ -243,8 +243,8 @@
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
       function buildSvgLegend(svg, zonesList){
   const NS = 'http://www.w3.org/2000/svg';
-  const pad = 8, boxW = 170, lineH = 11, sw = 12, gap = 6;
-  const offsetRight = 42; // nudge further left from the edge to avoid plots
+  const pad = 8, boxW = 170, lineH = 10, sw = 12, gap = 6;
+  const offsetRight = 60; // nudge further left from the edge to avoid plots
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('id','mapLegend');
   g.setAttribute('pointer-events','none');
@@ -267,6 +267,7 @@
   title.setAttribute('x', W - boxW - pad - offsetRight + 10);
   title.setAttribute('y', y);
   title.setAttribute('class','legend-text');
+  title.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   title.textContent = 'Legend';
   g.appendChild(title);
   y += 12;
@@ -275,6 +276,7 @@
   zonesLabel.setAttribute('x', W - boxW - pad - offsetRight + 10);
   zonesLabel.setAttribute('y', y);
   zonesLabel.setAttribute('class','legend-text');
+  zonesLabel.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   zonesLabel.textContent = 'Zones';
   g.appendChild(zonesLabel);
   y += 10;
@@ -300,6 +302,7 @@
     t.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
     t.setAttribute('y', y);
     t.setAttribute('class','legend-text');
+    t.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
     t.textContent = z;
     g.appendChild(t);
 
@@ -310,6 +313,7 @@
   statusHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
   statusHeader.setAttribute('y', y);
   statusHeader.setAttribute('class','legend-text');
+  statusHeader.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   statusHeader.textContent = 'Status';
   g.appendChild(statusHeader);
   y += 10;
@@ -326,6 +330,7 @@
     tx.setAttribute('x', W - boxW - pad - offsetRight + 24);
     tx.setAttribute('y', y - 1);
     tx.setAttribute('class','legend-text');
+    tx.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
     tx.textContent = label;
     g.appendChild(tx);
 
@@ -349,6 +354,7 @@
   oosT.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
   oosT.setAttribute('y', y - 1);
   oosT.setAttribute('class','legend-text');
+  oosT.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   oosT.textContent = 'Out of service';
   g.appendChild(oosT);
   y += lineH;
@@ -357,6 +363,7 @@
   ownHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
   ownHeader.setAttribute('y', y);
   ownHeader.setAttribute('class','legend-text');
+  ownHeader.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   ownHeader.textContent = 'Ownership';
   g.appendChild(ownHeader);
   y += 10;
@@ -383,6 +390,7 @@
   ownText.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
   ownText.setAttribute('y', y - 1);
   ownText.setAttribute('class','legend-text');
+  ownText.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
   ownText.textContent = 'Stripe = ownership (when enabled)';
   g.appendChild(ownText);
 
