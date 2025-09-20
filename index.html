@@ -122,7 +122,7 @@
       <div class="toolbar-title">Interactive demo</div>
     </div>
     <div id="frame">
-      <svg id="map" preserveAspectRatio="xMidYMin meet"></svg>
+      <svg id="map" preserveAspectRatio="xMidYMin slice"></svg>
     </div>
   </div>
   <div id="tip" class="tip"></div>
@@ -209,10 +209,10 @@
         const toolbar = document.getElementById('toolbar');
         const available = Math.max(100, window.innerHeight - toolbar.offsetHeight);
         const widthNow = frame.clientWidth || window.innerWidth; // current frame width
-        const ideal = widthNow * (H / W);                        // ideal height for this width
-        const h = Math.min(available, ideal); // no letterbox above; top-aligned map fits without scroll
+        // The ideal height for the current width, but for cover-fit, use all available
+        const h = available; // cover-fit: exact viewport space under toolbar
         frame.style.height = h + 'px';
-}
+      }
 
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       sizeFrame();
@@ -241,164 +241,201 @@
       path.setAttribute('stroke','#b66');
       path.setAttribute('stroke-width','1');
       pattern.appendChild(path); defs.appendChild(pattern); svg.appendChild(defs);
+      // SVG text wrapping helper for legend
+      function wrapSvgText(textEl, str, maxWidth){
+        while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+        const words = (str||'').split(/\s+/);
+        let line = '';
+        const makeTspan = (dy) => {
+          const tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+          tspan.setAttribute('x', textEl.getAttribute('x'));
+          tspan.setAttribute('dy', dy);
+          textEl.appendChild(tspan);
+          return tspan;
+        };
+        let tspan = makeTspan('0');
+        words.forEach((w) => {
+          const test = line ? line + ' ' + w : w;
+          tspan.textContent = test;
+          if (tspan.getComputedTextLength() > maxWidth && line){
+            tspan.textContent = line;
+            tspan = makeTspan('1.25em');
+            tspan.textContent = w;
+            line = w;
+          } else {
+            line = test;
+          }
+        });
+      }
+
       function buildSvgLegend(svg, zonesList){
-  const NS = 'http://www.w3.org/2000/svg';
-  const pad = 8, boxW = 170, lineH = 12, sw = 12, gap = 6;
-  const offsetRight = 60; // nudge further left from the edge to avoid plots
-  const g = document.createElementNS(NS, 'g');
-  g.setAttribute('id','mapLegend');
-  g.setAttribute('pointer-events','none');
+        const NS = 'http://www.w3.org/2000/svg';
+        const pad = 12, boxW = 180, lineH = 14, sw = 14, gap = 8;
+        const offsetRight = 72; // ensure we clear the empty-plot area on the right
 
-  const bgRect = document.createElementNS(NS, 'rect');
-  bgRect.setAttribute('x', W - boxW - pad - offsetRight);
-  bgRect.setAttribute('y', pad + 6);
-  bgRect.setAttribute('width', boxW);
-  bgRect.setAttribute('height', 40);
-  bgRect.setAttribute('rx', 8);
-  bgRect.setAttribute('ry', 8);
-  bgRect.setAttribute('fill', 'rgba(255,255,255,0.8)');
-  bgRect.setAttribute('stroke', '#cfd8d3');
-  bgRect.setAttribute('stroke-width', '1');
-  g.appendChild(bgRect);
+        const bgX = W - boxW - pad - offsetRight;
+        const bgY = pad + 8;
 
-  let y = pad + 6 + 12;
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('id','mapLegend');
+        g.setAttribute('pointer-events','none');
 
-  const title = document.createElementNS(NS,'text');
-  title.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  title.setAttribute('y', y);
-  title.setAttribute('class','legend-text');
-  title.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  title.textContent = 'Legend';
-  g.appendChild(title);
-  y += 12;
+        // Background panel (height to be updated after layout)
+        const bgRect = document.createElementNS(NS, 'rect');
+        bgRect.setAttribute('x', bgX);
+        bgRect.setAttribute('y', bgY);
+        bgRect.setAttribute('width', boxW);
+        bgRect.setAttribute('height', 40);
+        bgRect.setAttribute('rx', 8);
+        bgRect.setAttribute('ry', 8);
+        bgRect.setAttribute('fill', 'rgba(255,255,255,0.92)');
+        bgRect.setAttribute('stroke', '#bfc8c2');
+        bgRect.setAttribute('stroke-width', '1');
+        g.appendChild(bgRect);
 
-  const zonesLabel = document.createElementNS(NS,'text');
-  zonesLabel.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  zonesLabel.setAttribute('y', y);
-  zonesLabel.setAttribute('class','legend-text');
-  zonesLabel.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  zonesLabel.textContent = 'Zones';
-  g.appendChild(zonesLabel);
-  y += 10;
+        let y = bgY + 16;
 
-  const shown = new Set();
-  zonesList.forEach(zRaw => {
-    const z = (zRaw||'').trim();
-    if(!z || shown.has(z)) return; shown.add(z);
-    const color = tintForZone(z);
+        // Title
+        const title = document.createElementNS(NS,'text');
+        title.setAttribute('x', bgX + 12);
+        title.setAttribute('y', y);
+        title.setAttribute('class','legend-text');
+        title.setAttribute('style','font-weight:600;font-size:9px;');
+        title.textContent = 'Legend';
+        g.appendChild(title);
+        y += lineH + 2;
 
-    const r = document.createElementNS(NS,'rect');
-    r.setAttribute('x', W - boxW - pad - offsetRight + 10);
-    r.setAttribute('y', y - 8);
-    r.setAttribute('width', sw);
-    r.setAttribute('height', 10);
-    r.setAttribute('fill', color);
-    r.setAttribute('stroke', '#000');
-    r.setAttribute('stroke-opacity', '0.25');
-    r.setAttribute('vector-effect','non-scaling-stroke');
-    g.appendChild(r);
+        // Zones header
+        const zonesHdr = document.createElementNS(NS,'text');
+        zonesHdr.setAttribute('x', bgX + 12);
+        zonesHdr.setAttribute('y', y);
+        zonesHdr.setAttribute('class','legend-text');
+        zonesHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        zonesHdr.textContent = 'Zones';
+        g.appendChild(zonesHdr);
+        y += lineH;
 
-    const t = document.createElementNS(NS,'text');
-    t.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
-    t.setAttribute('y', y);
-    t.setAttribute('class','legend-text');
-    t.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-    t.textContent = z;
-    g.appendChild(t);
+        // Unique, sorted zones
+        const zones = Array.from(new Set(zonesList.filter(z => z && z.trim()))).sort();
+        const maxLabelW = boxW - 12 - sw - gap - 14; // padding minus swatch and margins
+        zones.forEach(z => {
+          const r = document.createElementNS(NS,'rect');
+          r.setAttribute('x', bgX + 12);
+          r.setAttribute('y', y - 8);
+          r.setAttribute('width', sw);
+          r.setAttribute('height', 10);
+          r.setAttribute('fill', tintForZone(z));
+          r.setAttribute('stroke', '#000');
+          r.setAttribute('stroke-opacity', '0.25');
+          r.setAttribute('vector-effect','non-scaling-stroke');
+          g.appendChild(r);
 
-    y += lineH;
-  });
+          const t = document.createElementNS(NS,'text');
+          t.setAttribute('x', bgX + 12 + sw + gap);
+          t.setAttribute('y', y);
+          t.setAttribute('class','legend-text');
+          wrapSvgText(t, z, maxLabelW);
+          g.appendChild(t);
 
-  const statusHeader = document.createElementNS(NS,'text');
-  statusHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  statusHeader.setAttribute('y', y);
-  statusHeader.setAttribute('class','legend-text');
-  statusHeader.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  statusHeader.textContent = 'Status';
-  g.appendChild(statusHeader);
-  y += 10;
+          const lines = t.getElementsByTagName('tspan').length || 1;
+          y += lineH * lines;
+        });
 
-  const addDot = (label, color) => {
-    const c = document.createElementNS(NS,'circle');
-    c.setAttribute('cx', W - boxW - pad - offsetRight + 15);
-    c.setAttribute('cy', y - 3);
-    c.setAttribute('r', 4);
-    c.setAttribute('fill', color);
-    g.appendChild(c);
+        y += 6; // spacer before Status
 
-    const tx = document.createElementNS(NS,'text');
-    tx.setAttribute('x', W - boxW - pad - offsetRight + 24);
-    tx.setAttribute('y', y - 1);
-    tx.setAttribute('class','legend-text');
-    tx.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-    tx.textContent = label;
-    g.appendChild(tx);
+        // Status header
+        const statusHdr = document.createElementNS(NS,'text');
+        statusHdr.setAttribute('x', bgX + 12);
+        statusHdr.setAttribute('y', y);
+        statusHdr.setAttribute('class','legend-text');
+        statusHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        statusHdr.textContent = 'Status';
+        g.appendChild(statusHdr);
+        y += lineH;
 
-    y += lineH;
-  };
-  addDot('Cleaning', STATUS_DOT.cleaning);
-  addDot('Maint', STATUS_DOT.maintenance);
+        const addDot = (label, color) => {
+          const c = document.createElementNS(NS,'circle');
+          c.setAttribute('cx', bgX + 20);
+          c.setAttribute('cy', y - 3);
+          c.setAttribute('r', 5);
+          c.setAttribute('fill', color);
+          c.setAttribute('stroke', '#333');
+          c.setAttribute('stroke-width', '0.5');
+          g.appendChild(c);
 
-  const oosRect = document.createElementNS(NS,'rect');
-  oosRect.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  oosRect.setAttribute('y', y - 10);
-  oosRect.setAttribute('width', sw);
-  oosRect.setAttribute('height', 10);
-  oosRect.setAttribute('class','hatch');
-  oosRect.setAttribute('fill', '#f7f7f7');
-  oosRect.setAttribute('stroke', '#000');
-  oosRect.setAttribute('stroke-opacity', '0.25');
-  g.appendChild(oosRect);
+          const tx = document.createElementNS(NS,'text');
+          tx.setAttribute('x', bgX + 30);
+          tx.setAttribute('y', y);
+          tx.setAttribute('class','legend-text');
+          wrapSvgText(tx, label, maxLabelW - 12);
+          g.appendChild(tx);
 
-  const oosT = document.createElementNS(NS,'text');
-  oosT.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
-  oosT.setAttribute('y', y - 1);
-  oosT.setAttribute('class','legend-text');
-  oosT.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  oosT.textContent = 'Out of service';
-  g.appendChild(oosT);
-  y += lineH;
+          const lines = tx.getElementsByTagName('tspan').length || 1;
+          y += lineH * lines;
+        };
+        addDot('Cleaning', STATUS_DOT.cleaning);
+        addDot('Maint', STATUS_DOT.maintenance);
 
-  const ownHeader = document.createElementNS(NS,'text');
-  ownHeader.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  ownHeader.setAttribute('y', y);
-  ownHeader.setAttribute('class','legend-text');
-  ownHeader.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  ownHeader.textContent = 'Ownership';
-  g.appendChild(ownHeader);
-  y += 10;
+        // Out of service swatch
+        const oosRect = document.createElementNS(NS,'rect');
+        oosRect.setAttribute('x', bgX + 12);
+        oosRect.setAttribute('y', y - 8);
+        oosRect.setAttribute('width', sw);
+        oosRect.setAttribute('height', 10);
+        oosRect.setAttribute('class','hatch');
+        oosRect.setAttribute('fill', '#f7f7f7');
+        oosRect.setAttribute('stroke', '#000');
+        oosRect.setAttribute('stroke-opacity', '0.25');
+        g.appendChild(oosRect);
 
-  const ownBox = document.createElementNS(NS,'rect');
-  ownBox.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  ownBox.setAttribute('y', y - 10);
-  ownBox.setAttribute('width', sw);
-  ownBox.setAttribute('height', 10);
-  ownBox.setAttribute('fill', '#eee');
-  ownBox.setAttribute('stroke', '#000');
-  ownBox.setAttribute('stroke-opacity', '0.25');
-  g.appendChild(ownBox);
+        const oosT = document.createElementNS(NS,'text');
+        oosT.setAttribute('x', bgX + 12 + sw + gap);
+        oosT.setAttribute('y', y);
+        oosT.setAttribute('class','legend-text');
+        wrapSvgText(oosT, 'Out of service', maxLabelW);
+        g.appendChild(oosT);
+        y += lineH;
 
-  const ownStripe = document.createElementNS(NS,'rect');
-  ownStripe.setAttribute('x', W - boxW - pad - offsetRight + 10);
-  ownStripe.setAttribute('y', y - 10);
-  ownStripe.setAttribute('width', 4);
-  ownStripe.setAttribute('height', 10);
-  ownStripe.setAttribute('fill', OWN_BORDER.owner);
-  g.appendChild(ownStripe);
+        // Ownership header
+        const ownHdr = document.createElementNS(NS,'text');
+        ownHdr.setAttribute('x', bgX + 12);
+        ownHdr.setAttribute('y', y);
+        ownHdr.setAttribute('class','legend-text');
+        ownHdr.setAttribute('style','font-weight:500;font-size:8px;');
+        ownHdr.textContent = 'Ownership';
+        g.appendChild(ownHdr);
+        y += lineH;
 
-  const ownText = document.createElementNS(NS,'text');
-  ownText.setAttribute('x', W - boxW - pad - offsetRight + 10 + sw + gap);
-  ownText.setAttribute('y', y - 1);
-  ownText.setAttribute('class','legend-text');
-  ownText.setAttribute('style', 'max-width:140px;white-space:normal;word-wrap:break-word;');
-  ownText.textContent = 'Stripe = ownership (when enabled)';
-  g.appendChild(ownText);
+        const ownBox = document.createElementNS(NS,'rect');
+        ownBox.setAttribute('x', bgX + 12);
+        ownBox.setAttribute('y', y - 8);
+        ownBox.setAttribute('width', sw);
+        ownBox.setAttribute('height', 10);
+        ownBox.setAttribute('fill', '#eee');
+        ownBox.setAttribute('stroke', '#000');
+        ownBox.setAttribute('stroke-opacity', '0.25');
+        g.appendChild(ownBox);
 
-  y += lineH;
-  const totalH = (y + 4) - (pad + 8);
-  bgRect.setAttribute('height', totalH);
-  svg.appendChild(g);
-}
+        const ownStripe = document.createElementNS(NS,'rect');
+        ownStripe.setAttribute('x', bgX + 12);
+        ownStripe.setAttribute('y', y - 8);
+        ownStripe.setAttribute('width', 4);
+        ownStripe.setAttribute('height', 10);
+        ownStripe.setAttribute('fill', OWN_BORDER.owner);
+        g.appendChild(ownStripe);
+
+        const ownText = document.createElementNS(NS,'text');
+        ownText.setAttribute('x', bgX + 12 + sw + gap);
+        ownText.setAttribute('y', y);
+        ownText.setAttribute('class','legend-text');
+        wrapSvgText(ownText, 'Stripe = ownership (when enabled)', maxLabelW);
+        g.appendChild(ownText);
+        y += lineH;
+
+        // Finalise height
+        bgRect.setAttribute('height', (y + pad) - bgY);
+        svg.appendChild(g);
+      }
 
       // 2) Load ticket data from Google Sheets (published CSV)
       let sheet = {rows:[], byId:{}};
