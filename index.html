@@ -180,19 +180,22 @@
     };
     // Zone tints (very light); fallback generated from zone name if not in map
     const ZONE_TINT = {
-      // Keys must match norm(): lowercased, spaces→_, hyphens→_
-      ah:                          'hsl(230, 35%, 82%)', // cool slate
-      arran_view:                  'hsl(275, 45%, 84%)', // violet
-      carrick_view:                'hsl(205, 55%, 82%)', // blue
-      carrick_view_lodge:          'hsl(255, 48%, 85%)', // lavender
-      doon_view:                   'hsl(18,  70%, 86%)', // coral
-      friarland_view:              'hsl(48,  75%, 85%)', // warm sand
-      friarland_view_lodges:       'hsl(268, 38%, 86%)', // soft purple
-      lomond_view:                 'hsl(140, 45%, 82%)', // green
-      parkland_view_lodges:        'hsl(316, 45%, 86%)', // pink
-      arran_view_lodges:           'hsl(188, 45%, 82%)', // teal
-      // Add future zones below using the same pattern
-      // example_zone:             'hsl(210, 50%, 84%)',
+      // Core zones
+      ah:                         'hsl(230, 35%, 82%)', // slate-blue
+      arran_view:                 'hsl(272, 46%, 84%)', // violet
+      arran_view_lodges:          'hsl(188, 48%, 82%)', // teal
+      carrick_view:               'hsl(206, 55%, 82%)', // blue
+      carrick_view_lodge:         'hsl(255, 48%, 85%)', // lavender
+      doon_view:                  'hsl(18,  70%, 86%)', // coral
+      friarland_view:             'hsl(48,  75%, 85%)', // warm sand
+      friarland_view_lodges:      'hsl(268, 38%, 86%)', // soft purple
+      lomond_view:                'hsl(140, 45%, 82%)', // green
+      parkland_view_lodges:       'hsl(316, 45%, 86%)', // pink
+
+      // Spares for future zones (kept distinct)
+      riverside:                  'hsl(24,  70%, 85%)', // orange-peach
+      glen_view:                  'hsl(160, 42%, 82%)', // jade
+      woodland:                   'hsl(90,  40%, 84%)', // spring
     };
     function tintForZone(z){
       const key = norm(z);
