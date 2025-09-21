@@ -41,8 +41,6 @@
     .pitch:hover { opacity: 1; stroke: #111; stroke-opacity:0.95; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); cursor: pointer; }
     .ownTag, .statusDot { pointer-events: none; }
     .legend-text { font-size: 8px; fill: #1f3a4a; dominant-baseline: middle; }
-    .legendHandle{ opacity:0; transition: opacity .15s; }
-    #mapLegend:hover .legendHandle{ opacity:.6; }
     #legendDrag{ cursor: move; }
     #legendResize{ cursor: se-resize; }
     .tip {
@@ -323,10 +321,11 @@ function saveLegendState(){
         g.setAttribute('id','mapLegend');
         g.setAttribute('pointer-events','visiblePainted'); // allow interaction on handles
 
-        // Content group (non-interactive so clicks pass through)
+        // Content group (allow pointer events for specific children)
         const content = document.createElementNS(NS, 'g');
         content.setAttribute('id','legendContent');
-        content.setAttribute('pointer-events','none');
+        // allow pointer events for specific children (e.g., resize hotspot)
+        content.setAttribute('pointer-events','auto');
 
         // Background panel
         const bgRect = document.createElementNS(NS, 'rect');
@@ -339,6 +338,8 @@ function saveLegendState(){
         bgRect.setAttribute('fill', 'rgba(255,255,255,0.92)');
         bgRect.setAttribute('stroke', '#bfc8c2');
         bgRect.setAttribute('stroke-width', '1');
+        // do not capture clicks on the panel itself
+        bgRect.setAttribute('pointer-events','none');
         content.appendChild(bgRect);
 
         let y = 12;
@@ -518,17 +519,16 @@ function saveLegendState(){
         g.appendChild(content);
         g.appendChild(drag);
 
-        // Resize handle: subtle square in bottom-right corner, only visible on hover
+        // Resize handle: invisible hotspot anchored to bottom-right, inside content group
         const resize = document.createElementNS(NS,'rect');
-        resize.setAttribute('x', boxW - 10);
-        resize.setAttribute('y', totalH - 10);
-        resize.setAttribute('width', 10);
-        resize.setAttribute('height', 10);
-        resize.setAttribute('fill', '#d9e3d4');
-        resize.setAttribute('stroke', '#7a8c75');
-        resize.setAttribute('stroke-width', '0.5');
+        resize.setAttribute('x', boxW - 12);
+        resize.setAttribute('y', totalH - 12);
+        resize.setAttribute('width', 12);
+        resize.setAttribute('height', 12);
+        resize.setAttribute('fill', 'transparent');
+        resize.setAttribute('stroke', 'none');
+        resize.setAttribute('pointer-events','all'); // ensure it receives events even when content is scaled
         resize.setAttribute('id', 'legendResize');
-        resize.setAttribute('class','legendHandle');
         content.appendChild(resize);
 
         // Position & scale from saved state
