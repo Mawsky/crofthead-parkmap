@@ -210,6 +210,21 @@
       return { stroke: '#000', strokeOpacity: 0.28, fill, extra, fillOpacity };
     }
     function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
+    // --- Legend state (position + scale) ---
+const legendPos = { x: 0, y: 0, scale: 1 };
+
+function loadLegendState(){
+  try {
+    const s = JSON.parse(localStorage.getItem('legendState') || '{}');
+    if (typeof s.x === 'number') legendPos.x = s.x;
+    if (typeof s.y === 'number') legendPos.y = s.y;
+    if (typeof s.scale === 'number') legendPos.scale = s.scale;
+  } catch {}
+}
+
+function saveLegendState(){
+  localStorage.setItem('legendState', JSON.stringify(legendPos));
+}
   </script>
 
   <script>
@@ -292,185 +307,273 @@
       }
 
       function buildSvgLegend(svg, zonesList){
-        const NS = 'http://www.w3.org/2000/svg';
-        // Slimmer legend @ ~80% scale
-        const pad = 12, boxW = 140, lineH = 12, sw = 12, gap = 6;
-        const offsetRight = 90; // keep clear of right-side empty plots
+      const NS = 'http://www.w3.org/2000/svg';
+      // Slim legend (same look, now moveable/resizable)
+      const pad = 12, boxW = 140, lineH = 12, sw = 12, gap = 6;
+      const offsetRight = 90;
 
-        const bgX = W - boxW - pad - offsetRight;
-        const bgY = pad + 24; // keep current vertical position
+      const bgX = W - boxW - pad - offsetRight;
+      const bgY = pad + 24;
 
-        const g = document.createElementNS(NS, 'g');
-        g.setAttribute('id','mapLegend');
-        g.setAttribute('pointer-events','none');
+      const g = document.createElementNS(NS, 'g');
+      g.setAttribute('id','mapLegend');
+      g.setAttribute('pointer-events','visiblePainted'); // allow interaction on handles
 
-        // Background panel (height updated after layout)
-        const bgRect = document.createElementNS(NS, 'rect');
-        bgRect.setAttribute('x', bgX);
-        bgRect.setAttribute('y', bgY);
-        bgRect.setAttribute('width', boxW);
-        bgRect.setAttribute('height', 40);
-        bgRect.setAttribute('rx', 8);
-        bgRect.setAttribute('ry', 8);
-        bgRect.setAttribute('fill', 'rgba(255,255,255,0.92)');
-        bgRect.setAttribute('stroke', '#bfc8c2');
-        bgRect.setAttribute('stroke-width', '1');
-        g.appendChild(bgRect);
+      // Content group (non-interactive so clicks pass through)
+      const content = document.createElementNS(NS, 'g');
+      content.setAttribute('id','legendContent');
+      content.setAttribute('pointer-events','none');
 
-        let y = bgY + 12;
+      // Background panel
+      const bgRect = document.createElementNS(NS, 'rect');
+      bgRect.setAttribute('x', bgX);
+      bgRect.setAttribute('y', bgY);
+      bgRect.setAttribute('width', boxW);
+      bgRect.setAttribute('height', 40);
+      bgRect.setAttribute('rx', 8);
+      bgRect.setAttribute('ry', 8);
+      bgRect.setAttribute('fill', 'rgba(255,255,255,0.92)');
+      bgRect.setAttribute('stroke', '#bfc8c2');
+      bgRect.setAttribute('stroke-width', '1');
+      content.appendChild(bgRect);
 
-        // Title (slightly smaller)
-        const title = document.createElementNS(NS,'text');
-        title.setAttribute('x', bgX + 12);
-        title.setAttribute('y', y);
-        title.setAttribute('class','legend-text');
-        title.setAttribute('style','font-weight:600;font-size:8px;');
-        title.textContent = 'Legend';
-        g.appendChild(title);
-        y += lineH + 2;
+      let y = bgY + 12;
 
-        // Zones header (hair smaller)
-        const zonesHdr = document.createElementNS(NS,'text');
-        zonesHdr.setAttribute('x', bgX + 12);
-        zonesHdr.setAttribute('y', y);
-        zonesHdr.setAttribute('class','legend-text');
-        zonesHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
-        zonesHdr.textContent = 'Zones';
-        g.appendChild(zonesHdr);
-        y += lineH;
+      // Title
+      const title = document.createElementNS(NS,'text');
+      title.setAttribute('x', bgX + 12);
+      title.setAttribute('y', y);
+      title.setAttribute('class','legend-text');
+      title.setAttribute('style','font-weight:600;font-size:8px;');
+      title.textContent = 'Legend';
+      content.appendChild(title);
+      y += lineH + 2;
 
-        // Unique, sorted zones with wrapping
-        const zones = Array.from(new Set(zonesList.filter(z => z && z.trim()))).sort();
-        const maxLabelW = boxW - 12 - sw - gap - 12;
-        zones.forEach(z => {
-          const r = document.createElementNS(NS,'rect');
-          r.setAttribute('x', bgX + 12);
-          r.setAttribute('y', y - 8);
-          r.setAttribute('width', sw);
-          r.setAttribute('height', 10);
-          r.setAttribute('fill', tintForZone(z));
-          r.setAttribute('stroke', '#000');
-          r.setAttribute('stroke-opacity', '0.25');
-          r.setAttribute('vector-effect','non-scaling-stroke');
-          g.appendChild(r);
+      // Zones header
+      const zonesHdr = document.createElementNS(NS,'text');
+      zonesHdr.setAttribute('x', bgX + 12);
+      zonesHdr.setAttribute('y', y);
+      zonesHdr.setAttribute('class','legend-text');
+      zonesHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
+      zonesHdr.textContent = 'Zones';
+      content.appendChild(zonesHdr);
+      y += lineH;
 
-          const t = document.createElementNS(NS,'text');
-          t.setAttribute('x', bgX + 12 + sw + gap);
-          t.setAttribute('y', y);
-          t.setAttribute('class','legend-text');
-          wrapSvgText(t, z, maxLabelW);
-          g.appendChild(t);
+      // Unique, sorted zones with wrapping
+      const zones = Array.from(new Set(zonesList.filter(z => z && z.trim()))).sort();
+      const maxLabelW = boxW - 12 - sw - gap - 12;
+      zones.forEach(z => {
+        const r = document.createElementNS(NS,'rect');
+        r.setAttribute('x', bgX + 12);
+        r.setAttribute('y', y - 8);
+        r.setAttribute('width', sw);
+        r.setAttribute('height', 10);
+        r.setAttribute('fill', tintForZone(z));
+        r.setAttribute('stroke', '#000');
+        r.setAttribute('stroke-opacity', '0.25');
+        r.setAttribute('vector-effect','non-scaling-stroke');
+        content.appendChild(r);
 
-          const lines = t.getElementsByTagName('tspan').length || 1;
-          y += lineH * lines;
-        });
+        const t = document.createElementNS(NS,'text');
+        t.setAttribute('x', bgX + 12 + sw + gap);
+        t.setAttribute('y', y);
+        t.setAttribute('class','legend-text');
+        wrapSvgText(t, z, maxLabelW);
+        content.appendChild(t);
 
-        y += 6; // spacer before Status
+        const lines = t.getElementsByTagName('tspan').length || 1;
+        y += lineH * lines;
+      });
 
-        // Status header
-        const statusHdr = document.createElementNS(NS,'text');
-        statusHdr.setAttribute('x', bgX + 12);
-        statusHdr.setAttribute('y', y);
-        statusHdr.setAttribute('class','legend-text');
-        statusHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
-        statusHdr.textContent = 'Status';
-        g.appendChild(statusHdr);
-        y += lineH;
+      y += 6; // spacer before Status
 
-        const addDot = (label, color) => {
-          const c = document.createElementNS(NS,'circle');
-          c.setAttribute('cx', bgX + 20);
-          c.setAttribute('cy', y - 3);
-          c.setAttribute('r', 4); // smaller dot
-          c.setAttribute('fill', color);
-          c.setAttribute('stroke', '#333');
-          c.setAttribute('stroke-width', '0.5');
-          g.appendChild(c);
+      // Status header
+      const statusHdr = document.createElementNS(NS,'text');
+      statusHdr.setAttribute('x', bgX + 12);
+      statusHdr.setAttribute('y', y);
+      statusHdr.setAttribute('class','legend-text');
+      statusHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
+      statusHdr.textContent = 'Status';
+      content.appendChild(statusHdr);
+      y += lineH;
 
-          const tx = document.createElementNS(NS,'text');
-          tx.setAttribute('x', bgX + 30);
-          tx.setAttribute('y', y);
-          tx.setAttribute('class','legend-text');
-          wrapSvgText(tx, label, maxLabelW - 12);
-          g.appendChild(tx);
+      const addDot = (label, color) => {
+        const c = document.createElementNS(NS,'circle');
+        c.setAttribute('cx', bgX + 20);
+        c.setAttribute('cy', y - 3);
+        c.setAttribute('r', 4);
+        c.setAttribute('fill', color);
+        c.setAttribute('stroke', '#333');
+        c.setAttribute('stroke-width', '0.5');
+        content.appendChild(c);
 
-          const lines = tx.getElementsByTagName('tspan').length || 1;
-          y += lineH * lines;
-        };
-        addDot('Cleaning', STATUS_DOT.cleaning);
-        addDot('Maint', STATUS_DOT.maintenance);
+        const tx = document.createElementNS(NS,'text');
+        tx.setAttribute('x', bgX + 30);
+        tx.setAttribute('y', y);
+        tx.setAttribute('class','legend-text');
+        wrapSvgText(tx, label, maxLabelW - 12);
+        content.appendChild(tx);
 
-        // Out of service swatch
-        const oosRect = document.createElementNS(NS,'rect');
-        oosRect.setAttribute('x', bgX + 12);
-        oosRect.setAttribute('y', y - 8);
-        oosRect.setAttribute('width', sw);
-        oosRect.setAttribute('height', 10);
-        oosRect.setAttribute('class','hatch');
-        oosRect.setAttribute('fill', '#f7f7f7');
-        oosRect.setAttribute('stroke', '#000');
-        oosRect.setAttribute('stroke-opacity', '0.25');
-        g.appendChild(oosRect);
+        const lines = tx.getElementsByTagName('tspan').length || 1;
+        y += lineH * lines;
+      };
+      addDot('Cleaning', STATUS_DOT.cleaning);
+      addDot('Maint', STATUS_DOT.maintenance);
 
-        const oosT = document.createElementNS(NS,'text');
-        oosT.setAttribute('x', bgX + 12 + sw + gap);
-        oosT.setAttribute('y', y);
-        oosT.setAttribute('class','legend-text');
-        wrapSvgText(oosT, 'Out of service', maxLabelW);
-        g.appendChild(oosT);
-        y += lineH;
+      // Out of service swatch
+      const oosRect = document.createElementNS(NS,'rect');
+      oosRect.setAttribute('x', bgX + 12);
+      oosRect.setAttribute('y', y - 8);
+      oosRect.setAttribute('width', sw);
+      oosRect.setAttribute('height', 10);
+      oosRect.setAttribute('class','hatch');
+      oosRect.setAttribute('fill', '#f7f7f7');
+      oosRect.setAttribute('stroke', '#000');
+      oosRect.setAttribute('stroke-opacity', '0.25');
+      content.appendChild(oosRect);
 
-        // Ownership header
-        const ownHdr = document.createElementNS(NS,'text');
-        ownHdr.setAttribute('x', bgX + 12);
-        ownHdr.setAttribute('y', y);
-        ownHdr.setAttribute('class','legend-text');
-        ownHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
-        ownHdr.textContent = 'Ownership';
-        g.appendChild(ownHdr);
-        y += lineH;
+      const oosT = document.createElementNS(NS,'text');
+      oosT.setAttribute('x', bgX + 12 + sw + gap);
+      oosT.setAttribute('y', y);
+      oosT.setAttribute('class','legend-text');
+      wrapSvgText(oosT, 'Out of service', maxLabelW);
+      content.appendChild(oosT);
+      y += lineH;
 
-        const ownBox = document.createElementNS(NS,'rect');
-        ownBox.setAttribute('x', bgX + 12);
-        ownBox.setAttribute('y', y - 8);
-        ownBox.setAttribute('width', sw);
-        ownBox.setAttribute('height', 10);
-        ownBox.setAttribute('fill', '#eee');
-        ownBox.setAttribute('stroke', '#000');
-        ownBox.setAttribute('stroke-opacity', '0.25');
-        g.appendChild(ownBox);
+      // Ownership header
+      const ownHdr = document.createElementNS(NS,'text');
+      ownHdr.setAttribute('x', bgX + 12);
+      ownHdr.setAttribute('y', y);
+      ownHdr.setAttribute('class','legend-text');
+      ownHdr.setAttribute('style','font-weight:500;font-size:7.5px;');
+      ownHdr.textContent = 'Ownership';
+      content.appendChild(ownHdr);
+      y += lineH;
 
-        const ownStripe = document.createElementNS(NS,'rect');
-        ownStripe.setAttribute('x', bgX + 12);
-        ownStripe.setAttribute('y', y - 8);
-        ownStripe.setAttribute('width', 4);
-        ownStripe.setAttribute('height', 10);
-        ownStripe.setAttribute('fill', OWN_BORDER.owner);
-        g.appendChild(ownStripe);
+      const ownBox = document.createElementNS(NS,'rect');
+      ownBox.setAttribute('x', bgX + 12);
+      ownBox.setAttribute('y', y - 8);
+      ownBox.setAttribute('width', sw);
+      ownBox.setAttribute('height', 10);
+      ownBox.setAttribute('fill', '#eee');
+      ownBox.setAttribute('stroke', '#000');
+      ownBox.setAttribute('stroke-opacity', '0.25');
+      content.appendChild(ownBox);
 
-        // Force the text onto two lines: "Stripe = ownership" and "(when enabled)"
-        const ownText = document.createElementNS(NS,'text');
-        ownText.setAttribute('x', bgX + 12 + sw + gap);
-        ownText.setAttribute('y', y);
-        ownText.setAttribute('class','legend-text');
-        const t1 = document.createElementNS(NS,'tspan');
-        t1.setAttribute('x', bgX + 12 + sw + gap);
-        t1.setAttribute('dy', '0');
-        t1.textContent = 'Stripe = ownership';
-        ownText.appendChild(t1);
-        const t2 = document.createElementNS(NS,'tspan');
-        t2.setAttribute('x', bgX + 12 + sw + gap);
-        t2.setAttribute('dy', '1.25em');
-        t2.textContent = '(when enabled)';
-        ownText.appendChild(t2);
-        g.appendChild(ownText);
-        y += lineH * 2;
+      const ownStripe = document.createElementNS(NS,'rect');
+      ownStripe.setAttribute('x', bgX + 12);
+      ownStripe.setAttribute('y', y - 8);
+      ownStripe.setAttribute('width', 4);
+      ownStripe.setAttribute('height', 10);
+      ownStripe.setAttribute('fill', OWN_BORDER.owner);
+      content.appendChild(ownStripe);
 
-        // Finalise height
-        bgRect.setAttribute('height', (y + pad - 10) - bgY);
-        svg.appendChild(g);
+      // Force two-line ownership note
+      const ownText = document.createElementNS(NS,'text');
+      ownText.setAttribute('x', bgX + 12 + sw + gap);
+      ownText.setAttribute('y', y);
+      ownText.setAttribute('class','legend-text');
+      const t1 = document.createElementNS(NS,'tspan');
+      t1.setAttribute('x', bgX + 12 + sw + gap);
+      t1.setAttribute('dy', '0');
+      t1.textContent = 'Stripe = ownership';
+      ownText.appendChild(t1);
+      const t2 = document.createElementNS(NS,'tspan');
+      t2.setAttribute('x', bgX + 12 + sw + gap);
+      t2.setAttribute('dy', '1.25em');
+      t2.textContent = '(when enabled)';
+      ownText.appendChild(t2);
+      content.appendChild(ownText);
+      y += lineH * 2;
+
+      // Commit content and compute panel height
+      g.appendChild(content);
+      const totalH = (y + pad - 10) - bgY;
+
+      // Adjust bg height now content is laid out
+      const rectEl = g.querySelector('rect');
+      rectEl.setAttribute('height', totalH);
+
+      // --- Drag + resize handles (interactive) ---
+      const drag = document.createElementNS(NS,'rect');
+      drag.setAttribute('x', bgX + 8);
+      drag.setAttribute('y', bgY + 6);
+      drag.setAttribute('width', 12);
+      drag.setAttribute('height', 12);
+      drag.setAttribute('rx', 3);
+      drag.setAttribute('fill', '#d9e3d4');
+      drag.setAttribute('stroke', '#7a8c75');
+      drag.setAttribute('stroke-width', '0.5');
+      drag.setAttribute('cursor', 'move');
+      drag.setAttribute('id', 'legendDrag');
+      g.appendChild(drag);
+
+      const resize = document.createElementNS(NS,'rect');
+      resize.setAttribute('x', bgX + boxW - 10);
+      resize.setAttribute('y', bgY + totalH - 10);
+      resize.setAttribute('width', 10);
+      resize.setAttribute('height', 10);
+      resize.setAttribute('fill', '#d9e3d4');
+      resize.setAttribute('stroke', '#7a8c75');
+      resize.setAttribute('stroke-width', '0.5');
+      resize.setAttribute('cursor', 'se-resize');
+      resize.setAttribute('id', 'legendResize');
+      g.appendChild(resize);
+
+      // Position & scale from saved state
+      applyLegendTransform(g);
+      svg.appendChild(g);
+    }
+      function applyLegendTransform(g){
+        g.setAttribute('transform', `translate(${legendPos.x},${legendPos.y}) scale(${legendPos.scale})`);
       }
 
+      function svgPointFromClient(ev){
+        const pt = svg.createSVGPoint();
+        const c = ('touches' in ev) ? ev.touches[0] : ev;
+        pt.x = c.clientX; pt.y = c.clientY;
+        return pt.matrixTransform(svg.getScreenCTM().inverse());
+      }
+
+      function wireLegendInteractions(){
+        const g = document.getElementById('mapLegend');
+        if (!g) return;
+        const drag = document.getElementById('legendDrag');
+        const rez  = document.getElementById('legendResize');
+
+        // Drag to move
+        if (drag){
+          let dragging=false, start, origin;
+          drag.addEventListener('pointerdown', ev=>{
+            dragging=true; drag.setPointerCapture(ev.pointerId);
+            start = svgPointFromClient(ev); origin={x:legendPos.x,y:legendPos.y};
+          });
+          drag.addEventListener('pointermove', ev=>{
+            if(!dragging) return;
+            const p=svgPointFromClient(ev);
+            legendPos.x = origin.x + (p.x-start.x);
+            legendPos.y = origin.y + (p.y-start.y);
+            applyLegendTransform(g);
+          });
+          drag.addEventListener('pointerup', ()=>{ dragging=false; saveLegendState(); });
+        }
+
+        // Drag corner to resize (scale)
+        if (rez){
+          let resizing=false, s0=legendPos.scale, x0=0;
+          rez.addEventListener('pointerdown', ev=>{
+            resizing=true; rez.setPointerCapture(ev.pointerId);
+            s0=legendPos.scale; x0=ev.clientX;
+          });
+          rez.addEventListener('pointermove', ev=>{
+            if(!resizing) return;
+            const dx = ev.clientX - x0;
+            legendPos.scale = Math.max(0.7, Math.min(1.6, s0 + dx/300));
+            applyLegendTransform(g);
+          });
+          rez.addEventListener('pointerup', ()=>{ resizing=false; saveLegendState(); });
+        }
+      }
       // 2) Load ticket data from Google Sheets (published CSV)
       let sheet = {rows:[], byId:{}};
       try { sheet = await loadCSV(SHEET_CSV_URL); } catch(e) { console.warn('Sheet load failed', e); }
@@ -486,7 +589,8 @@
         optNone.value='__none__'; optNone.textContent='(Unassigned)';
         fZone.appendChild(optNone);
       }
-
+      // Load legend position/scale from previous session
+      loadLegendState();
       // 3) Draw shapes joined with ticket data
       const NS = 'http://www.w3.org/2000/svg';
       const nodes = [];
@@ -585,6 +689,7 @@
         });
       }
       buildSvgLegend(svg, zones);
+      wireLegendInteractions();
       function updateLegendVisibility(){
         const show = document.getElementById('toggleLegend').checked;
         const legend = document.getElementById('mapLegend');
