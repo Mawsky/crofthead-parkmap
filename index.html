@@ -513,18 +513,10 @@ function saveLegendState(){
         drag.setAttribute('height', 18);
         drag.setAttribute('fill', 'transparent');
         drag.setAttribute('id', 'legendDrag');
-        // add a tiny visual hint only on hover (small circle near title)
-        const hint = document.createElementNS(NS,'circle');
-        hint.setAttribute('cx', 10);
-        hint.setAttribute('cy', 10);
-        hint.setAttribute('r', 3);
-        hint.setAttribute('fill', '#7a8c75');
-        hint.setAttribute('class','legendHandle');
 
-        // Append content first, then handles
+        // Append content first, then drag overlay
         g.appendChild(content);
         g.appendChild(drag);
-        g.appendChild(hint);
 
         // Resize handle: subtle square in bottom-right corner, only visible on hover
         const resize = document.createElementNS(NS,'rect');
@@ -537,7 +529,7 @@ function saveLegendState(){
         resize.setAttribute('stroke-width', '0.5');
         resize.setAttribute('id', 'legendResize');
         resize.setAttribute('class','legendHandle');
-        g.appendChild(resize);
+        content.appendChild(resize);
 
         // Position & scale from saved state
         applyLegendTransform(g);
